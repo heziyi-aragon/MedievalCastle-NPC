@@ -1,0 +1,16 @@
+Castle Terrain Final Configuration
+GeneratedUtc=2026-11-03T17:17:15.2096239Z
+CastleBoundsCenter=(0, 14.55, 0.191)
+CastleBoundsSize=(49.34, 29.1, 49.721)
+TerrainPosition=(-90, -12, -89.809)
+TerrainSize=(180, 35, 180)
+HeightmapResolution=513
+AlphamapResolution=512
+BaseMapResolution=1024
+PlatformRadius=(36.67, 36.861)
+HillRadius=(78, 74)
+PlatformWorldHeight=0
+Layer[0]=TL_Grass_Lush; Tile=10x10; Metallic=0; Smoothness=0.1
+Layer[1]=TL_Soil_Dirt; Tile=8x8; Metallic=0; Smoothness=0.05
+Layer[2]=TL_Rock_Cliff; Tile=6.5x6.5; Metallic=0; Smoothness=0.08
+Layer[3]=NewLayer; Tile=12x12; Metallic=0; Smoothness=0.2

@@ -1,0 +1,27 @@
+Castle Terrain Baseline
+CapturedUtc=2026-11-03T17:09:12.0367041Z
+Scene=Assets/Scenes/Castle_Exterior.unity
+SceneDirty=False
+Unity=2022.3.62f3c1
+Quality=Balanced
+RenderPipeline=URP-Balanced
+CastlePosition=(0, 0, 0)
+CastleRotation=(0, 0, 0)
+CastleScale=(1, 1, 1)
+CastleBoundsCenter=(0, 14.55, 0.191)
+CastleBoundsSize=(49.34, 29.1, 49.721)
+CastleBoundsMin=(-24.67, 0, -24.67)
+CastleBoundsMax=(24.67, 29.1, 25.051)
+TerrainPosition=(-90, 0, -90)
+TerrainSize=(180, 35, 180)
+HeightmapResolution=513
+AlphamapResolution=512
+BaseMapResolution=1024
+DetailResolution=1024
+TerrainLayerCount=1
+Layer[0]=NewLayer; Tile=12x12; Metallic=0; Smoothness=0.2
+MainCameraPosition=(-30.883, 22.871, 43.214)
+MainCameraFov=60
+ConsoleErrors=0
+ConsoleWarnings=0
+ConsoleLogs=0

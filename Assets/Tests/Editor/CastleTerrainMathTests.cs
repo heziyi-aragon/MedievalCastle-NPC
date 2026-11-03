@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using UnityEngine;
 
 namespace MedievalCastle.Editor.Tests
 {
@@ -30,6 +31,38 @@ namespace MedievalCastle.Editor.Tests
             Assert.That(near, Is.GreaterThan(middle));
             Assert.That(middle, Is.GreaterThan(far));
             Assert.That(far, Is.GreaterThanOrEqualTo(0f));
+        }
+
+        [Test]
+        public void SurfaceWeightsFavorGrassOnGentleGroundAndRockOnSteepGround()
+        {
+            Vector4 gentle = CastleTerrainMath.CalculateSurfaceWeights(0f, 1f, 0.5f);
+            Vector4 steep = CastleTerrainMath.CalculateSurfaceWeights(1f, 0.4f, 0.5f);
+
+            Assert.That(gentle.x, Is.GreaterThan(gentle.y));
+            Assert.That(gentle.x, Is.GreaterThan(gentle.z));
+            Assert.That(steep.z, Is.GreaterThan(steep.x));
+            Assert.That(steep.z, Is.GreaterThan(steep.y));
+        }
+
+        [Test]
+        public void SurfaceWeightsAreNormalized()
+        {
+            Vector4 weights = CastleTerrainMath.CalculateSurfaceWeights(0.33f, 0.72f, 0.8f);
+            Assert.That(weights.x + weights.y + weights.z + weights.w, Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(weights.x, Is.GreaterThanOrEqualTo(0f));
+            Assert.That(weights.y, Is.GreaterThanOrEqualTo(0f));
+            Assert.That(weights.z, Is.GreaterThanOrEqualTo(0f));
+            Assert.That(weights.w, Is.GreaterThanOrEqualTo(0f));
+        }
+
+        [Test]
+        public void SurfaceWeightsUseVariationToBreakUniformSoilBands()
+        {
+            Vector4 lowVariation = CastleTerrainMath.CalculateSurfaceWeights(0.2f, 0.7f, 0.1f);
+            Vector4 highVariation = CastleTerrainMath.CalculateSurfaceWeights(0.2f, 0.7f, 0.9f);
+
+            Assert.That(highVariation.y, Is.GreaterThan(lowVariation.y + 0.1f));
         }
     }
 }
