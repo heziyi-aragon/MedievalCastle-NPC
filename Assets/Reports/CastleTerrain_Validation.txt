@@ -1,5 +1,5 @@
 Castle Terrain Final Validation
-CapturedUtc=2026-11-03T17:20:05.8667097Z
+CapturedUtc=2026-11-23T16:52:51.9899848Z
 Scene=Assets/Scenes/Castle_Exterior.unity
 CastlePosition=(0.00, 0.00, 0.00)
 CastleRotation=(0.00, 0.00, 0.00)
@@ -12,7 +12,7 @@ AlphamapResolution=512
 TerrainLayerCount=4
 ConsoleErrors=0
 ConsoleWarnings=0
-ConsoleLogs=0
+ConsoleLogs=3
 GameScreenshot=Assets/Reports/Screenshots/Castle_Exterior_Game_Final.png
 SceneScreenshot=Assets/Reports/Screenshots/Castle_Exterior_Scene_Final.png
 FourDirectionScreenshots=Assets/Reports/Screenshots/Castle_Exterior_Scene_North.png; Assets/Reports/Screenshots/Castle_Exterior_Scene_East.png; Assets/Reports/Screenshots/Castle_Exterior_Scene_South.png; Assets/Reports/Screenshots/Castle_Exterior_Scene_West.png

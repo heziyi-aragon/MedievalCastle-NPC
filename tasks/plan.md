@@ -1,79 +1,153 @@
-# 实施计划：中世纪城堡外部环境与自然高地
+# 实施计划：城堡场景的运行时地形与建筑编辑
 
 ## 核心路线
 
-现状测量与双重备份 → 导入三类 CC0 2K PBR 贴图 → 配置 Terrain Layer → 生成可回退的城堡高地 → 按坡度与高度自动混合地表 → Scene/Game/Console 三重验收。
+保留已完成的 `Castle_Exterior` → 将编辑行为与原场景资产隔离 → 完成升高/降低/平滑地形 → 完成城墙/塔楼的放置、旋转、删除 → 加入最小编辑界面与镜头 → 在主场景完成验收。
 
-本轮停止在“城堡自然落在高地上，草地、泥土、岩石正常工作”。道路、树木、灌木、NPC、动画、城门交互和 LLM 系统全部不进入本轮。
+本轮不再搭建第二座城堡，也不重做现有高地、地表材质、灯光和主城堡。现有城堡继续作为固定场景主体；新下载资源只作为可放置模块的来源。
 
-## 已确认现状
+## 已确认基线
 
-- Unity 为 `2022.3.62f3c1`，URP 为 `14.0.12`；当前质量等级索引为 1，对应 `Balanced`，并引用 `URP-Balanced.asset`。
-- 主场景为 `Assets/Scenes/Castle_Exterior.unity`；城堡实例位置为 `(0, 0, 0)`，旋转为 0，缩放为 1，不应移动或缩放。
-- Terrain 位置为 `(-90, 0, -90)`，引用 `Assets/New Terrain.asset`；实际尺寸、高度和分辨率仍需在 Unity API 中读取后决定是否调整。
-- 已有草地贴图与 `Assets/NewLayer.terrainlayer` 正常存在。资产真实参数为 Tile Size `8 × 8`、Metallic `0`、Smoothness `0`，与旧任务说明中的数值不一致；执行时以当前资产为准并保留它。
-- `NullReferenceException` 的栈顶来自 `UnityEditor.TerrainInspector.ShowResolution` 与 `EditorGUI.DelayedFloatField`，不是项目脚本或 glTFast；先按 Unity Inspector 状态问题处理，不删除脚本、不动包。
-- 当前 Git 工作树中的项目文件全部未跟踪，不能依赖 Git 回退；必须做独立资产备份。
+- 主场景为 `Assets/Scenes/Castle_Exterior.unity`，主城堡 Transform 保持位置 `(0, 0, 0)`、旋转 `(0, 0, 0)`、缩放 `(1, 1, 1)`。
+- Terrain 为 `180 × 35 × 180m`，Heightmap 513，Alphamap 512，已有草、土、岩及旧 Layer 共四层。
+- 城堡与自然高地已经接地完成；最终验证记录为 Console 0 Error、0 Warning。
+- `castle-with-keep.glb` 包含 17 个分类 Mesh；其中全部角塔合并为一个 `Corner towers` Mesh，全部城墙合并为一个 `Curtain walls` Mesh，因此不能直接作为单段运行时 Prefab。
+- `Medieval Castle - Modular` 的完整 Demo、完整 Castle、房屋和桥梁不进入主场景；只评估 `Wall`、`Tower A`、`Tower B` 三类独立 Prefab。
 
-## 阶段 1：建立可回退基线
+## 架构决定
 
-先用一个只读 Editor 工具读取城堡所有 Renderer 的合并 Bounds、最低可见点、Terrain 的位置、尺寸、Heightmap/Alphamap/BaseMap 分辨率、当前 Terrain Layer、活动质量等级和 Console 错误。随后保存场景，并同时备份：
+1. **非破坏性地形编辑**：进入运行时编辑模式时复制 `TerrainData`，Terrain 与 TerrainCollider 都指向运行时副本。升降和平滑只修改副本，退出 Play Mode 后原始 `Assets/New Terrain.asset` 不变。
+2. **小而明确的建筑编辑**：只提供城墙和塔楼两类模块；鼠标指向地面预览，左键放置，`Q/E` 旋转，`Delete` 删除选中模块。所有实例统一放在 `RuntimePlacedStructures` 根节点下。
+3. **资源包只作模块供体**：先用一个 Wall 与一个 Tower 做灰石材质适配。若与主城堡仍不协调，就停止使用该包，不把 Demo 或整座城堡带入项目。
+4. **输入与未来 NPC 系统隔离**：编辑功能由显式的 Edit Mode 开关启用；关闭时不读取编辑快捷键，避免与玩家移动、对话和 NPC 交互冲突。
 
-- `Assets/Scenes/Backup/Castle_Exterior_BeforeTerrainWork.unity`
-- `Assets/Scenes/Backup/New Terrain_BeforeTerrainWork.asset`
+## 阶段 1：清理资源边界并制作两个候选模块
 
-只备份场景不合格，因为场景仍会引用同一份 TerrainData。
+只保留/引用资源包中的 `Wall`、`Tower A`、`Tower B` 及其必要 Mesh、Texture。创建项目自己的 `RuntimeWall.prefab` 与 `RuntimeTower.prefab`，材质改为 URP/Lit，并调成与主城堡接近的冷灰石色；为两个 Prefab 配置 Collider、底部 Pivot 和合理尺寸。Demo 场景不加入 Build Settings。
 
-验收：备份场景改为引用备份 TerrainData；原始城堡 GLB、glTFast 包和 `NewLayer` 均未变；基线截图与测量结果已记录。
+**验收标准：**
 
-## 阶段 2：取得最小资源集并规范导入
+- 主场景中仍只有原来的完整城堡。
+- 单独摆放的 Wall/Tower 与主城堡比例合理，底部不悬空。
+- 两个模块无粉色材质、无 Missing Script，且可独立实例化。
 
-从 Poly Haven 或 ambientCG 选择三套 CC0、2K、无明显方向性的 PBR 地表：自然绿草、泥土/枯草、灰褐岩石。只取 Base Color、OpenGL Normal、Roughness，确有价值时再取 AO；不下载 4K/8K、位移贴图或模型包。资源分别放入：
+## 阶段 2：完成运行时地形笔刷
 
-- `Assets/Art/Textures/Terrain/Grass/`
-- `Assets/Art/Textures/Terrain/Soil/`
-- `Assets/Art/Textures/Terrain/Rock/`
+实现 `RuntimeTerrainBrush` 和独立数学函数。鼠标射线命中 Terrain 后，按笔刷半径取得局部 Heightmap：Raise 增高、Lower 降低、Smooth 向邻域均值收敛；高度始终限制在 `0–1`。拖动过程中调用 `SetHeightsDelayLOD`，松开鼠标后调用 `SyncHeightmap`。提供 Brush Size、Strength 与 Reset。
 
-颜色贴图启用 sRGB；Normal 设为 Normal Map；全部限制 Max Size 2048、启用 Mip Maps、Repeat，并采用平台默认压缩。Roughness/AO 关闭 sRGB。每套资源把名称、原始 URL、CC0 许可和用途写入 `Assets/Art/Textures/Terrain/THIRD_PARTY_NOTICES.md`。
+**验收标准：**
 
-验收：三套贴图无导入警告；法线凸凹方向正确；预计常驻显存与编辑器稳定性符合 6GB VRAM 目标。
+- Raise、Lower、Smooth 三种模式均可连续绘制。
+- 只更新笔刷覆盖的小区域，边界处不越界、不产生高度尖刺。
+- Reset 恢复进入编辑模式时的地形；退出 Play Mode 后原 TerrainData 未改变。
 
-## 阶段 3：配置并实际应用 Terrain Layer
+## 阶段 3：完成运行时建筑编辑
 
-创建 `TL_Grass_Lush`、`TL_Soil_Dirt`、`TL_Rock_Cliff` 到 `Assets/Art/TerrainLayers/`，保留 `NewLayer`。起始范围为草 8–12m、土 6–10m、岩 5–8m，Metallic 均为 0，Smoothness 约为 0.20/0.15/0.15，再按纹理实际尺度现场校正。URP Terrain Layer 不直接使用单独 Roughness；若资源适合，则由 Editor 工具把 Roughness/AO 安全打包为 Mask Map，否则以 Smoothness 标量为准。
+实现 `RuntimeBuildController`。选择 Wall/Tower 后显示半透明预览，预览跟随 Terrain 命中点；使用 1m 网格吸附，`Q/E` 每次旋转 15°，左键确认放置。选择模式下点击已放置模块，再按 `Delete` 删除；主城堡与场景原对象不可删除。使用简单占用检测阻止明显重叠或超出 Terrain 边界。
 
-验收：四个 Layer 都在 TerrainData 中；三类新材质不是“只创建未绘制”；近景无明显棋盘格、错误法线或高光塑料感。
+**验收标准：**
 
-## 阶段 4：生成自然高地
+- Wall 与 Tower 都能放置、连续旋转并删除。
+- 无效位置显示红色且不能放置；有效位置显示绿色。
+- 所有实例有稳定父节点和 Collider，不修改源 Prefab。
 
-在 `Assets/Editor/Tools/CastleTerrainBuilder.cs` 保存可复用 Editor 工具。工具以 Renderer Bounds 为唯一几何依据：城堡占地外扩安全边距形成平整平台，平台高度对齐城堡最低可见结构；再用 smoothstep 类衰减向 Terrain 外围下降，并叠加幅度受限的低频噪声和轻微非对称偏移。城门方向设置更宽、更缓的保护区，防止掩埋入口；平台范围内不加噪声。
+## 阶段 4：加入最小编辑界面与编辑镜头
 
-Terrain 目标约 `180 × 30–40 × 180m`、Heightmap 513，但只有实测不满足时才调整。生成前记录 Undo，并提供“恢复备份/重新生成”入口；不修改城堡 Transform。
+在主场景加入一个轻量 HUD：Edit Mode、Terrain/Build 标签，Raise/Lower/Smooth、Wall/Tower、Brush Size、Strength、Reset 和当前快捷键提示。编辑模式使用独立镜头控制：WASD 平移、鼠标中键旋转、滚轮缩放；退出编辑模式后恢复项目原镜头状态。
 
-验收：平台平整且比城堡 Bounds 向外延伸；城堡底部自然接地；城门、外墙和塔楼不被地形穿过；坡体没有规则圆锥、完美对称或尖锐噪点。
+**验收标准：**
 
-## 阶段 5：按地形语义混合材质
+- 用户无需 Inspector 就能完成全部演示流程。
+- 当前模式、选中工具和快捷键清楚可见。
+- UI 操作不会同时触发地形或建筑点击。
 
-用同一工具基于高度、坡度和低频遮罩生成 Alphamap：缓坡以 `TL_Grass_Lush` 为主，平台边缘及过渡带加入 `TL_Soil_Dirt`，陡坡和局部高差处使用 `TL_Rock_Cliff`；`NewLayer` 仅作为少量色差补充，不主导整体。混合阈值带随机扰动但保持连续，避免环形色带。
+## 阶段 5：主场景集成与交付验证
 
-验收：草、土、岩的分布与坡度关系合理；三者过渡连续；远近视角都没有明显重复网格或机械圆环。
+把系统接入 `Castle_Exterior`，但编辑区域优先安排在城堡外围的缓坡/空地，避免破坏主城堡基座。执行完整演示：进入编辑模式 → 升高/降低/平滑地形 → 放置墙和塔 → 旋转 → 删除 → Reset → 退出编辑模式。保存截图与测试记录。
 
-## 阶段 6：视觉校正与交付
+**验收标准：**
 
-在 Scene 与 1920×1080 Game 视图检查四个方向和主镜头，只做地形、贴图比例和摄像机取景的微调，不改城堡比例。清空 Console 后触发一次资源刷新、保存场景并再次检查；若 Terrain Inspector 的 NullReference 仍可复现，记录为 Unity Editor 内部问题，采用关闭/重开 Inspector 或重启编辑器规避，不做破坏性“修复”。
+- 以上流程可在一次 Play Session 内完成，Console 无新增 Error。
+- 原城堡、地形材质、灯光与既有截图基线不被覆盖。
+- 功能满足“基本地形调整 + 少量城墙/塔楼放置、旋转、删除”的分工边界。
 
-验收：场景保存；Console 无新增项目错误；提供最终 Scene/Game 截图、资源与许可表、Terrain Layer 参数、Terrain 实际参数、雕刻方法、NullReference 结论和遗留问题。
+## 预计节奏
+
+- 第 1 天：模块适配、运行时 TerrainData 副本和三种笔刷。
+- 第 2 天：墙/塔预览、放置、旋转、删除及占用检测。
+- 第 3 天：HUD、编辑镜头、主场景集成、测试和演示截图。
 
 ## 风险与控制
 
-| 风险 | 判断 | 控制方式 |
+| 风险 | 影响 | 控制方式 |
 |---|---|---|
-| 地形修改不可回退 | 高 | 场景与 TerrainData 双备份、Undo、确定性生成参数 |
-| Terrain 穿过城墙或城门 | 高 | 用 Bounds 生成平台，再对城门方向人工复核与局部修正 |
-| 贴图显存和导入体积过大 | 中 | 仅 2K、Mip Maps、压缩、只下载必要通道 |
-| 自动混合出现规则环带 | 中 | 坡度+高度+低频遮罩联合，而非只按到中心距离 |
-| Editor NullReference 反复刷屏 | 低 | 已定位 TerrainInspector；先规避 UI 状态，绝不删除项目脚本 |
+| Play Mode 修改原 TerrainData | 高 | 运行时复制 TerrainData，并同步替换 TerrainCollider 引用 |
+| 下载模块与主城堡风格不一致 | 中 | 先验证一个 Wall/一个 Tower；不通过就停止使用，不导入整套 Demo |
+| 编辑输入与玩家/NPC 操作冲突 | 高 | Edit Mode 显式开关，关闭时完全停用编辑输入 |
+| 交互范围继续膨胀 | 中 | 只做两类建筑、三种地形笔刷和 Reset，不做完整 RTS、道路或建筑升级 |
 
 ## 完成定义
 
-城堡模型、比例和 glTFast 保持不变；城堡稳定落在自然高地平台上；外围山坡平滑且不规则；草、泥土、岩石三类材质均真实应用；无明显穿模和新增 Console 错误；原场景、备份场景、TerrainData、工具源码、许可记录及两张最终截图全部可交付。
+`Castle_Exterior` 保留既有城堡与自然高地；运行时可安全执行 Raise、Lower、Smooth；可放置、旋转、删除一段城墙和一座塔楼；有最小 HUD 与编辑镜头；Reset 和退出 Play Mode 均不破坏原 TerrainData；Console 无新增错误，并留下可复现的验证记录。
+
+---
+
+# 场景布置计划：入口动线、NPC 功能区与自然环境
+
+## 主线
+
+以现有城堡主门为唯一空间锚点，按“城外树林与来路 → 守卫检查 → 城内市场/训练分流 → 城堡主体”的顺序组织视觉和玩家移动。树木负责遮挡地图边界、形成入口框景；RPG 道具负责说明各区域用途；城堡正面和运行时编辑区保持空旷，避免环境布置妨碍后续玩法。
+
+## 空间坐标约定
+
+- `GateAnchor`：主门中心地面点。
+- `Outward`：从主门指向城外的方向，当前场景初步判断约为世界 `+Z`，实施前以 Scene 视图复核。
+- `Inward`：进入城堡方向，即 `-Outward`。
+- 所有区域先作为空根节点建立，最终对象只放入对应根节点，不直接散落在场景顶层。
+
+## 阶段 1：建立结构与视线走廊
+
+创建 `Environment_Dressing`，下设 `EntranceRoad`、`GuardCheckpoint`、`MarketZone`、`TrainingYard`、`ForestPerimeter`、`GroundDetails` 六个根节点。以主门中心线保留一条 6m 宽、约 45m 长的无障碍来路；门前 12m 范围不放大树或大岩石，确保玩家出生后能直接看到入口。
+
+**验收标准：** 主门从出生点清晰可见；道路最窄处不少于 4m；所有新增对象都在六个根节点内。
+
+## 阶段 2：先做外围树林的大中轮廓
+
+只使用 `Assets/Moudles/Realistic Tree/Prefabs/URP`。第一轮放 24–32 棵：远边界用 `Spruce 3/6/8` 形成暗色背景，入口两侧用 `Ash 3/5` 与 `Chestnut 2/5` 形成宽树冠，中景用 `Birch 2/6/9` 打破轮廓；暂不使用 Willow，因为当前场景没有水体。单棵缩放控制在 `0.85–1.15`，Y 轴旋转随机，树干与道路边缘至少相距 3m，避免规则排队。
+
+**验收标准：** Terrain 四角与远边界不再空；城堡正面仍有宽阔视线；近处不出现明显重复的同款树。
+
+## 阶段 3：用道具定义三个 NPC 功能区
+
+1. `GuardCheckpoint` 放在主门外 4–8m：`Fence1/2` 4–6段、`FencePost` 2–4个、`Crate1` 2个、`Barel1` 1–2个、`Bucket` 1个，中央保留 4m 通道和两个守卫站位。
+2. `MarketZone` 放在入门后的左侧约 12–18m：`Crate1/2/2Open` 5–7个、`Barel1/Barel2Open` 3–4个、`Bucket/BucketLarge` 2个、`Rope` 2个、`PlanksPile` 1处；用木柱和布面组合一个约 3×2.5m 的简易摊位，保留商人面前 2.5m 交互空间。
+3. `TrainingYard` 放在入门后的右侧约 12–20m：`Fence1/2` 6–8段围出约 18×22m 场地，放 `Axe1`、`Hammer`、`Pickaxe`、`PlanksPile` 与 `Trunk`；用木柱、横梁和麻袋色材质组合 2 个训练假人，场地中央保留至少 8×10m 空区。
+
+**验收标准：** 不看 UI 也能分辨检查点、市场和训练场；三块区域之间的主路保持畅通；道具不阻塞 NPC 交互位置。
+
+## 阶段 4：补地表过渡与微小自然细节
+
+`Rock/RockMedium/RockBig` 共放 12–18处，主要压在坡脚、树根和道路外缘；`Trunk` 放 2–3处；`LongGrass` 与 `Dandelion` 只用于道路外侧和墙根，按 3–7株成簇，避免平均撒满。大岩石不放在主门前，晶簇和 Anchor 不使用，因为它们与当前写实城堡、无水体环境不符。
+
+**验收标准：** 道路到树林之间有“短草 → 长草/花 → 岩石/树干 → 大树”的层次；没有漂浮、穿地或挡路道具。
+
+## 阶段 5：光照、性能与玩法联合检查
+
+检查全部材质使用 URP 版本；树木开启适度阴影，但距离较远的树关闭不必要碰撞；只有道路边缘、NPC 区域和玩家可能接触的大型道具保留 Collider。按“出生点 → 守卫 → 市场 → 训练场 → 城堡入口 → 编辑区”走一遍，确认镜头、导航和运行时地形/建筑编辑都不被环境物件阻挡。
+
+**验收标准：** Console 无新增 Error；Game 视图没有粉色材质；主路径连续可走；编辑区仍留有至少 25×35m 的空地；场景保存前制作备份。
+
+## 数量预算
+
+| 类别 | 首轮数量 | 上限 | 目的 |
+|---|---:|---:|---|
+| 大中型树 | 24–32 | 40 | 包围边界、框景，不做密林模拟 |
+| 岩石/树干 | 14–21 | 28 | 坡脚和林缘过渡 |
+| 草花簇 | 20–30簇 | 45簇 | 局部破除空旷，避免平均铺设 |
+| 木箱/木桶/桶 | 14–18 | 24 | 守卫与市场叙事 |
+| 围栏/围栏柱 | 12–18 | 24 | 检查点和训练区边界 |
+| 工具/绳索/木板 | 8–12 | 16 | 训练和生活痕迹 |
+
+## 实施顺序与检查点
+
+`根节点与主路净空 → 8棵关键框景树 → 三个NPC区域灰盒 → 完整外围树林 → 道具细化 → 草石过渡 → 性能与玩法检查`。每完成一个阶段先在 Game 视图查看，再继续加密；若主门、NPC或道路识别度下降，就撤掉遮挡物而不是继续堆资源。
