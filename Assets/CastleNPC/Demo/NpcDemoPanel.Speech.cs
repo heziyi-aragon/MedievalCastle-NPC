@@ -18,6 +18,8 @@ namespace MedievalCastle.Npc.Demo
         private AudioClip temporaryReply;
         private Func<string, string, CancellationToken, Task<AudioClip>> speechOverride;
         private float silentGestureUntil;
+        private bool farewellActive;
+        private float farewellStartedAt;
 
         internal string SpokenLine { get; private set; } = "";
         internal void SetSpeechProviderForTesting(Func<string, string, CancellationToken, Task<AudioClip>> provider)
@@ -43,6 +45,31 @@ namespace MedievalCastle.Npc.Demo
         {
             SpokenLine = reply.Reply;
             PlayLine(actor, reply.Reply, replyIsChinese, false, reply.Decision.Action);
+        }
+
+        internal void EndTalkWithFarewell()
+        {
+            if (!InConversation || MenuOpen) return;
+            var actor = actors[role];
+            var listener = viewer;
+            EndTalk();
+            if (!actor || !actor.isActiveAndEnabled) return;
+
+            switch (actor.RoleId)
+            {
+                case "guard": SpokenLine = T("Safe travels, traveler.", "一路平安，旅行者。"); break;
+                case "merchant": SpokenLine = T("Take care, my friend. Come by again.", "慢走啊，老朋友。下回再来看看。"); break;
+                default: SpokenLine = T("Chin up! See you on the training field!", "昂首向前！训练场见！"); break;
+            }
+            farewellActive = true;
+            farewellStartedAt = Time.unscaledTime;
+            speaker = actor;
+            actor.Speak(NpcAction.None, listener);
+            actor.SetMouthOpening(0f);
+            var clip = Resources.Load<AudioClip>("CastleNpcFarewells/" + actor.RoleId + (chinese ? "-zh" : "-en"));
+            if (clip) PlayClip(actor, clip);
+            else silentGestureUntil = Time.unscaledTime + 2.5f;
+            ShowFarewellCaption(listener ? listener.GetComponent<Camera>() : null);
         }
 
         private async void PlayLine(CastleNpcCharacter actor, string line, bool zh, bool greeting, NpcAction action)
@@ -80,20 +107,8 @@ namespace MedievalCastle.Npc.Demo
                     if (!greeting) StartSilentGesture(actor, action);
                     return;
                 }
-                voice = actor.VoiceAnchor.GetComponent<AudioSource>();
-                if (!voice)
-                {
-                    voice = actor.VoiceAnchor.gameObject.AddComponent<AudioSource>();
-                    voice.playOnAwake = false;
-                    voice.spatialBlend = 1f;
-                    voice.dopplerLevel = 0f;
-                    voice.minDistance = 1.25f;
-                    voice.maxDistance = 12f;
-                }
-                voice.pitch = actor.RoleId == "guard" ? .94f : actor.RoleId == "merchant" ? 1.05f : 1f;
-                voice.clip = clip;
                 if (!greeting) StartDecisionGesture(actor, action);
-                voice.Play();
+                PlayClip(actor, clip);
             }
             catch (OperationCanceledException) { }
             catch (Exception ex)
@@ -112,6 +127,23 @@ namespace MedievalCastle.Npc.Demo
             }
         }
 
+        private void PlayClip(CastleNpcCharacter actor, AudioClip clip)
+        {
+            voice = actor.VoiceAnchor.GetComponent<AudioSource>();
+            if (!voice)
+            {
+                voice = actor.VoiceAnchor.gameObject.AddComponent<AudioSource>();
+                voice.playOnAwake = false;
+                voice.spatialBlend = 1f;
+                voice.dopplerLevel = 0f;
+                voice.minDistance = 1.25f;
+                voice.maxDistance = 12f;
+            }
+            NpcVoiceProfile.Apply(voice, actor.RoleId);
+            voice.clip = clip;
+            voice.Play();
+        }
+
         private void StartDecisionGesture(CastleNpcCharacter actor, NpcAction action)
         {
             Vector3? target = trainingTarget ? (Vector3?)(trainingTarget.position + Vector3.up) : null;
@@ -126,6 +158,11 @@ namespace MedievalCastle.Npc.Demo
 
         private void UpdateVoice()
         {
+            if (farewellActive && (!speaker || !speaker.isActiveAndEnabled))
+            {
+                StopVoice();
+                return;
+            }
             if (!speaker) return;
             if (voice && voice.isPlaying && voice.clip)
             {
@@ -139,7 +176,7 @@ namespace MedievalCastle.Npc.Demo
             }
             else if (voice || (silentGestureUntil > 0 && Time.unscaledTime >= silentGestureUntil))
             {
-                speaker.Listen(viewer);
+                if (!farewellActive) speaker.Listen(viewer);
                 StopVoice();
             }
         }
@@ -155,6 +192,13 @@ namespace MedievalCastle.Npc.Demo
                 voice.clip = null;
             }
             if (speaker) speaker.SetMouthOpening(0f);
+            if (farewellActive)
+            {
+                if (speaker) speaker.EndConversation();
+                farewellActive = false;
+                SpokenLine = "";
+                if (speech) speech.gameObject.SetActive(false);
+            }
             if (temporaryReply) Destroy(temporaryReply);
             temporaryReply = null;
             voice = null;

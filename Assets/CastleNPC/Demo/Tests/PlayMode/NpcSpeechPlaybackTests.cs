@@ -15,7 +15,7 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
         public IEnumerator AllThreeRecordedWelcomesPlayFromTheCharactersMouths()
         {
             var ids = new[] { "guard", "merchant", "knight" };
-            var expectedPitches = new[] { .94f, 1.05f, 1f };
+            var expectedPitches = new[] { .94f, .90f, 1.045f };
             Panel.SetSpeechProviderForTesting(null);
             for (int i = 0; i < ids.Length; i++)
             {
@@ -34,6 +34,10 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
                 Assert.That(source.clip, Is.Not.Null);
                 Assert.That(source.clip.samples, Is.EqualTo(resource.samples));
                 Assert.That(source.pitch, Is.EqualTo(expectedPitches[i]).Within(.001f));
+                if (ids[i] == "merchant")
+                    Assert.That(source.GetComponent<AudioLowPassFilter>().cutoffFrequency, Is.EqualTo(6000f).Within(1f));
+                if (ids[i] == "knight")
+                    Assert.That(source.GetComponent<AudioHighPassFilter>().cutoffFrequency, Is.EqualTo(150f).Within(1f));
                 Assert.That(source.spatialBlend, Is.EqualTo(1));
                 Vector3 rest = jaw.localPosition;
                 float travel = 0;

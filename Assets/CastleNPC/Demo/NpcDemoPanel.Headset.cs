@@ -123,7 +123,7 @@ namespace MedievalCastle.Npc.Demo
                 case HudChoice.Prompt1: case HudChoice.Prompt2: case HudChoice.Prompt3: Submit(Prompt((int)choice)); break;
                 case HudChoice.NextPage: replyPage = (replyPage + 1) % ((result.Reply.Length + PageLength - 1) / PageLength); break;
                 case HudChoice.Retry: Retry(); break;
-                case HudChoice.End: EndTalk(); break;
+                case HudChoice.End: EndTalkWithFarewell(); break;
             }
         }
 

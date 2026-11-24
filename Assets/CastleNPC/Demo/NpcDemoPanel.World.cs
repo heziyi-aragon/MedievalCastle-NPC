@@ -172,7 +172,8 @@ namespace MedievalCastle.Npc.Demo
             if (!InConversation || MenuOpen || !eye)
             {
                 if (questions) questions.gameObject.SetActive(false);
-                if (speech) speech.gameObject.SetActive(false);
+                if (farewellActive && !MenuOpen && eye) ShowFarewellCaption(eye);
+                else if (speech) speech.gameObject.SetActive(false);
                 return;
             }
             if (!questions) BuildWorldCards();
@@ -231,28 +232,7 @@ namespace MedievalCastle.Npc.Demo
                 y += 30;
             }
             ((RectTransform)questions.transform).sizeDelta = new Vector2(CardWidth, y + 9);
-            string spoken = SpokenLine ?? "";
-            bool pages = HasPages;
-            if (pages)
-            {
-                int pageCount = (spoken.Length + PageLength - 1) / PageLength;
-                replyPage = Mathf.Clamp(replyPage, 0, pageCount - 1);
-                int start = replyPage * PageLength;
-                spoken = spoken.Substring(start, Mathf.Min(PageLength, spoken.Length - start));
-                pageLabel.text = (replyPage + 1) + " / " + pageCount;
-            }
-            pageLabel.gameObject.SetActive(pages);
-            speech.gameObject.SetActive(spoken.Length != 0);
-            if (spoken.Length != 0)
-            {
-                replyLabel.text = spoken;
-                float captionWidth = Mathf.Clamp(Mathf.Ceil(replyLabel.preferredWidth) + 40f, 144f, CardWidth);
-                Box(replyLabel.rectTransform, 18, 6, captionWidth - 36, 60);
-                float bodyHeight = Mathf.Max(43, Mathf.Ceil(replyLabel.preferredHeight) + 5);
-                Box(replyLabel.rectTransform, 18, 6, captionWidth - 36, bodyHeight);
-                if (pages) Box(pageLabel.rectTransform, 18, bodyHeight + 6, captionWidth - 36, 24);
-                ((RectTransform)speech.transform).sizeDelta = new Vector2(captionWidth, bodyHeight + 14 + (pages ? 26 : 0));
-            }
+            DrawSpeech(SpokenLine, HasPages);
 
             layoutValid = true;
             drawnChinese = chinese;
@@ -273,6 +253,36 @@ namespace MedievalCastle.Npc.Demo
                 }
             }
             FacePlayer(eye);
+        }
+
+        private void ShowFarewellCaption(Camera eye)
+        {
+            if (!speech || !eye) return;
+            speech.worldCamera = eye;
+            if (!speech.gameObject.activeSelf || replyLabel.text != SpokenLine) DrawSpeech(SpokenLine, false);
+            speech.transform.rotation = Facing(speech.transform.position, eye);
+        }
+
+        private void DrawSpeech(string spoken, bool pages)
+        {
+            if (pages)
+            {
+                int pageCount = (spoken.Length + PageLength - 1) / PageLength;
+                replyPage = Mathf.Clamp(replyPage, 0, pageCount - 1);
+                int start = replyPage * PageLength;
+                spoken = spoken.Substring(start, Mathf.Min(PageLength, spoken.Length - start));
+                pageLabel.text = (replyPage + 1) + " / " + pageCount;
+            }
+            pageLabel.gameObject.SetActive(pages);
+            speech.gameObject.SetActive(!string.IsNullOrEmpty(spoken));
+            if (!speech.gameObject.activeSelf) return;
+            replyLabel.text = spoken;
+            float captionWidth = Mathf.Clamp(Mathf.Ceil(replyLabel.preferredWidth) + 40f, 144f, CardWidth);
+            Box(replyLabel.rectTransform, 18, 6, captionWidth - 36, 60);
+            float bodyHeight = Mathf.Max(43, Mathf.Ceil(replyLabel.preferredHeight) + 5);
+            Box(replyLabel.rectTransform, 18, 6, captionWidth - 36, bodyHeight);
+            if (pages) Box(pageLabel.rectTransform, 18, bodyHeight + 6, captionWidth - 36, 24);
+            ((RectTransform)speech.transform).sizeDelta = new Vector2(captionWidth, bodyHeight + 14 + (pages ? 26 : 0));
         }
 
         private void FacePlayer(Camera eye)
@@ -319,13 +329,13 @@ namespace MedievalCastle.Npc.Demo
             float captionScale = Mathf.Clamp(Vector3.Distance(crown, eye.transform.position) * .00105f, CardScale, .0032f);
             var speechHalf = new Vector3((CardWidth * .5f + 4) * captionScale, 106 * captionScale, .022f);
             bool captionFits = false;
+            Vector3 captionAnchor = crown;
             foreach (float forward in new[] { 0f, .13f, .25f })
             {
                 var anchor = crown + face * forward;
                 var rotation = Facing(anchor, eye);
                 if (!ClearCard(eye.transform.position, anchor + rotation * Vector3.up * speechHalf.y, speechHalf, rotation)) continue;
-                speech.transform.localScale = Vector3.one * captionScale;
-                speech.transform.SetPositionAndRotation(anchor, rotation);
+                captionAnchor = anchor;
                 captionFits = true;
                 break;
             }
@@ -355,6 +365,8 @@ namespace MedievalCastle.Npc.Demo
                 var facing = Facing(point, eye);
                 if (Vector3.Distance(point, eye.transform.position) < .56f ||
                     !ClearCard(eye.transform.position, point, half, facing)) continue;
+                speech.transform.localScale = Vector3.one * captionScale;
+                speech.transform.SetPositionAndRotation(captionAnchor, Facing(captionAnchor, eye));
                 questions.transform.localScale = Vector3.one * scale;
                 questions.transform.SetPositionAndRotation(point, facing);
                 obstructedRole = -1;

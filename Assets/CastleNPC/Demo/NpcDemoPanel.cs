@@ -168,8 +168,11 @@ namespace MedievalCastle.Npc.Demo
             if (MenuOpen || InConversation || !observer) return;
             UpdateNearby(observer);
             if (!Nearby) return;
+            // A second quick press on End must not cut off the same NPC's goodbye.
+            if (farewellActive && Nearby == speaker && Time.unscaledTime - farewellStartedAt < .35f) return;
             var eye = observer.GetComponent<Camera>();
             if (!eye || !PlaceWorldCards(Nearby, eye)) return;
+            if (farewellActive) StopVoice();
             role = nearRole;
             viewer = observer;
             actors[role].Greet(viewer);

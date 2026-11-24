@@ -31,7 +31,11 @@
 
 角色使用同一个 `DEEPSEEK_API_KEY` 将有效回复中的 `reply` 送到 DeepSeek 语音合成接口。守卫和商人使用 `tide`，女骑士使用 `stella`。头顶先显示文字，音频就绪后由角色嘴边的 3D 声源播放，口型随实际声音变化。语音服务按字符独立计费。[DeepSeek 语音合成文档](https://api-docs.deepseek.com/zh-cn/guides/tts/)
 
-中文守卫、英文商人和英文骑士的招呼已预置 DeepSeek 合成录音。其余角色与语言组合首次使用时合成，随后在当前场景复用。更换问句或结束交谈会停止之前的台词。语音请求失败时玩家仍可阅读文字、继续提问，玩法层仍能取得本轮有效决策。
+中文守卫、英文商人和英文骑士的招呼已预置 DeepSeek 合成录音。其余角色与语言组合首次使用时合成，随后在当前场景复用。商人的语速较慢、音调较低，高频稍柔和。女骑士的语速略快，以清晰的短句发出训练指令。问候、回答和告别都使用各自的角色调音。语音请求失败时玩家仍可阅读文字、继续提问，玩法层仍能取得本轮有效决策。
+
+主动选择「结束交谈」后即可走动。角色在原地说完告别，头顶字幕和口型随录音结束。六句中英文告别随项目提供，在断网时也可立即播放。若告别途中开始另一段谈话，上一位角色会停下。直接走出交谈距离时，角色会收回动作。[六句 DeepSeek 告别原音](../Assets/CastleNPC/Demo/Resources/CastleNpcFarewells)
+
+声线对比采用同一句英文问候，每段先播放旧声，停顿 0.85 秒再播放新声。两段按听感响度对齐，适合用耳机比较语速和音色。文件采用游戏内相同的音调及滤波参数单独渲染。[商人试听](Gate-Dialogue/Voice-Comparisons/merchant-before-after.wav) · [女骑士试听](Gate-Dialogue/Voice-Comparisons/knight-before-after.wav)
 
 ## 成员 3 如何接入
 
@@ -70,6 +74,14 @@ if (turn.Decision.Action == NpcAction.RequestPurchase)
 - 三个 GLB 各自内嵌一个 PBR 材质、颜色图和金属度／粗糙度图，守卫另有切线空间法线图。在 Project 里展开 GLB 即可查看子资源。移动或旋转骑士时选择最外层的 **Knight**，马身与骑手会一起移动。重新导入带原始命名节点的模型后，可用 **Tools → Castle NPC → Build Character Prefabs** 更新动画和碰撞体引用。
 - `Assets/CastleNPC/Demo/` 保存桌面与头显的演示入口。正式游戏可停用 `NpcDemoPanel`，继续复用同一对象上的 `NpcDialogueService`。
 - Unity **Window → General → Test Runner** 可运行 EditMode 和 PlayMode 测试。普通离线测试不请求 API。手动设置 `CASTLE_NPC_LIVE_TESTS=1` 和 `DEEPSEEK_API_KEY` 后，按 `NpcLive` 分类运行三个真实在线用例。API 服务可能产生调用费用。
+
+### 商人、骑士声线与告别验收 · 2026-11-25
+
+六句 DeepSeek 告别录音均为 24 kHz 单声道，原音长 2.20–3.20 秒。Unity 在实际播放时应用各角色的调音，口型读同一段录音。两组试听的前后响度差均小于 0.04 LUFS。
+
+在工程副本的 `Castle_Exterior` 中，桌面按钮和模拟 Quest 右手 A 都验证了三人各两种语言的告别。菜单往返后仍可确认，连续按键只播放一次。玩家点结束后能边听边走；发起新谈话会打断旧声，迟到的回复也不会盖过告别。Unity 2022.3.62f3c1 通过 76 项 EditMode 和全部 30 项 PlayMode 回归。常规回归跳过 3 项可选在线聊天测试。OpenXR 未检测到实体头显，耳机中的空间声仅在编辑器中验证了声源位置与设置。
+
+另外通过游戏的 DeepSeek 对话接口实测了两种角色。中文商人报出一盏提灯五枚铜币，动作是 `none`。英文骑士回应训练邀请时介绍了三个训练标记，并给出 `offer_training` 和任务 ID `courtyard_drill`。首次骑士回答还提到了金币和通行证，收紧训练提示词后已重新在线验证。
 
 ### 城门交谈视听验收 · 2026-11-25
 
