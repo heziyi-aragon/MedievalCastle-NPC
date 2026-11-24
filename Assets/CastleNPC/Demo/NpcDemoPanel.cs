@@ -29,8 +29,7 @@ namespace MedievalCastle.Npc.Demo
         private NpcTurnResult result;
         private int role = -1, nearRole = -1;
         private bool chinese, guardWelcomed, exploredAfterGuard, failed;
-        private float speakingUntil;
-        private string sentText = "", typed = "";
+        private string sentText = "";
 
         internal bool MenuOpen { get; private set; }
         internal bool InConversation => role >= 0;
@@ -71,11 +70,7 @@ namespace MedievalCastle.Npc.Demo
 
         private void Update()
         {
-            if (speakingUntil > 0 && Time.unscaledTime >= speakingUntil)
-            {
-                speakingUntil = 0;
-                if (InConversation && actors[role]) actors[role].Listen(viewer);
-            }
+            UpdateVoice();
             UpdateDesktop();
             UpdateHeadset();
         }
@@ -133,6 +128,7 @@ namespace MedievalCastle.Npc.Demo
         internal void UpdateNearby(Transform observer)
         {
             if (!observer) { nearRole = -1; return; }
+            if ((observer.position - obstructedAt).sqrMagnitude > .04f) obstructedRole = -1;
             Vector3 body = observer.position - Vector3.up * .35f;
             if (InConversation)
             {
@@ -157,14 +153,13 @@ namespace MedievalCastle.Npc.Demo
                 "去和商人聊聊，再到训练场旁找骑士。");
             if (Nearby)
             {
+                if (obstructedRole == nearRole) return T("Step to one side to talk.", "向旁边走一步再交谈。");
                 string name = RoleName(nearRole);
                 string action = (headset ? "A" : "E") + (chinese ? " · 与" + name + "交谈" : " · Talk to " + name);
                 return guardWelcomed && !exploredAfterGuard && nearRole == 0 ? action + "\n" + next : action;
             }
             if (!guardWelcomed)
-                return T("Walk up to the guard", "走到守卫身边") + "\n" +
-                    (headset ? T("Left stick to move · B for settings", "左摇杆移动 · B 打开设置")
-                             : T("WASD to move · Mouse to look · Esc for settings", "WASD 移动 · 鼠标转向 · Esc 打开设置"));
+                return T("Talk to the guard", "跟守卫交流");
             return exploredAfterGuard ? "" : next;
         }
 
@@ -173,9 +168,12 @@ namespace MedievalCastle.Npc.Demo
             if (MenuOpen || InConversation || !observer) return;
             UpdateNearby(observer);
             if (!Nearby) return;
+            var eye = observer.GetComponent<Camera>();
+            if (!eye || !PlaceWorldCards(Nearby, eye)) return;
             role = nearRole;
             viewer = observer;
             actors[role].Greet(viewer);
+            StartGreeting(actors[role]);
             if (guardWelcomed && role != 0) exploredAfterGuard = true;
             CastlePlayerMotor.MovementLocked = true;
             ResetDialoguePresentation();
@@ -186,11 +184,12 @@ namespace MedievalCastle.Npc.Demo
             var prior = cancellation;
             cancellation = null;
             prior?.Cancel();
+            StopVoice();
+            SpokenLine = "";
             if (InConversation && actors[role]) actors[role].EndConversation();
             role = -1;
             viewer = null;
-            speakingUntil = 0;
-            sentText = typed = "";
+            sentText = "";
             failed = false;
             result = null;
             CastlePlayerMotor.MovementLocked = MenuOpen;
@@ -217,7 +216,8 @@ namespace MedievalCastle.Npc.Demo
             failed = false;
             replyIsChinese = chinese;
             replyPage = 0;
-            speakingUntil = 0;
+            StopVoice();
+            SpokenLine = "";
             var actor = actors[role];
             actor.Listen(viewer);
             try
@@ -229,9 +229,7 @@ namespace MedievalCastle.Npc.Demo
                 if (!failed)
                 {
                     if (role == 0) guardWelcomed = true;
-                    Vector3? target = trainingTarget ? (Vector3?)(trainingTarget.position + Vector3.up) : null;
-                    actor.Speak(reply.Decision.Action, viewer, target);
-                    speakingUntil = Time.unscaledTime + Mathf.Clamp(reply.Reply.Length * .05f, 1.3f, 5f);
+                    StartReply(actor, reply);
                 }
             }
             catch (Exception)
@@ -259,6 +257,7 @@ namespace MedievalCastle.Npc.Demo
 
         private void OnDestroy()
         {
+            ReleaseGreetings();
             languageSheet?.Destroy();
             if (headsetCanvas) Destroy(headsetCanvas.gameObject);
             if (desktopSkin) Destroy(desktopSkin);

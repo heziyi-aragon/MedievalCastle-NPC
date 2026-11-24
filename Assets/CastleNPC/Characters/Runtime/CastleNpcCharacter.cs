@@ -15,12 +15,17 @@ namespace MedievalCastle.NPC
         private Transform listener;
         private Vector3? trainingTarget;
         private Transform trainingFocus;
+        private Transform guardFigure;
+        private Quaternion restFigure;
+        private float figureYaw, turnVelocity, mouthOpening;
+        private bool animatedByAudio;
         private float phase, speakingWeight, attention, replyStart;
         private float greetingStart = -10f;
         private bool speaking, engaged;
         private NpcAction action;
 
         public string RoleId => roleId;
+        public Transform VoiceAnchor => jaw;
 
         private void Awake()
         {
@@ -29,6 +34,12 @@ namespace MedievalCastle.NPC
             restHead = head.localRotation;
             restJaw = jaw.localPosition;
             restArm = gestureArm.localRotation;
+            if (roleId == "guard")
+            {
+                // The model's Figure carries both legs and torso, beneath the stationary interaction root.
+                guardFigure = chest.parent;
+                restFigure = guardFigure.localRotation;
+            }
             if (offArm) restOffArm = offArm.localRotation;
             if (horseChest)
             {
@@ -46,6 +57,13 @@ namespace MedievalCastle.NPC
             speaking = false;
             engaged = true;
             greetingStart = Time.unscaledTime;
+            if (guardFigure && viewer)
+            {
+                float bearing = Vector3.Angle(Vector3.ProjectOnPlane(guardFigure.forward, Vector3.up),
+                    Vector3.ProjectOnPlane(viewer.position - guardFigure.position, Vector3.up));
+                // If approached from behind, bring the face into view before the peak of the salute.
+                greetingStart += .40f * Mathf.InverseLerp(45f, 165f, bearing);
+            }
             action = NpcAction.None;
         }
 
@@ -68,9 +86,18 @@ namespace MedievalCastle.NPC
 
         public void SetTrainingFocus(Transform focus) => trainingFocus = focus;
 
+        // Audio playback can drive the jaw independently of a greeting or a decision gesture.
+        public void SetMouthOpening(float normalized)
+        {
+            animatedByAudio = true;
+            mouthOpening = Mathf.Clamp01(normalized);
+            jaw.localPosition = restJaw - Vector3.up * (.008f * mouthOpening);
+        }
+
         // Retain the existing entry point for gameplay components that only have a speaking flag.
         public void SetSpeaking(bool value)
         {
+            animatedByAudio = false;
             if (value)
             {
                 var camera = Camera.main;
@@ -82,6 +109,9 @@ namespace MedievalCastle.NPC
         public void EndConversation()
         {
             engaged = speaking = false;
+            animatedByAudio = false;
+            mouthOpening = speakingWeight = 0f;
+            jaw.localPosition = restJaw;
             greetingStart = -10f;
         }
 
@@ -109,11 +139,16 @@ namespace MedievalCastle.NPC
 
             if (roleId == "guard")
             {
-                bool checking = action == NpcAction.CheckPass;
-                headAngles.x = nod * 14f + voice * (checking ? 11f : 4f) * (.55f + .45f * beat);
-                armAngles.x = -voice * (checking ? 47f : 8f) * (.82f + .18f * beat);
-                armAngles.z = -voice * (checking ? 6f : 2f);
-                if (checking && speaking && lookAt.HasValue) lookAt = lookAt.Value - Vector3.up * .4f;
+                float shoulderYaw = TurnGuard(lookAt, dt);
+                bool checking = speaking && action == NpcAction.CheckPass;
+                float sinceReply = now - replyStart;
+                float inspect = checking ? Mathf.SmoothStep(0, 1, sinceReply / .24f) *
+                    (1f - Mathf.SmoothStep(0, 1, (sinceReply - .65f) / .38f)) : 0;
+                if (lookAt.HasValue) lookAt = lookAt.Value - Vector3.up * (.46f * inspect);
+                chestAngles.y = (1f - idle) * shoulderYaw;
+                headAngles.x = nod * 14f + voice * 3f * beat;
+                armAngles.x = -38f * greeting - voice * (checking ? 47f : 20f) * (.74f + .26f * beat);
+                armAngles.z = 14f * greeting + voice * (checking ? -6f : 7f * beat);
                 // The eyes lead the shoulders. A brief shield adjustment follows the second scan.
                 float Scan(float seconds) => 19f * Beat(seconds, 10.7f, .4f, 1.4f, .65f, 1.55f)
                     - 24f * Beat(seconds, 10.7f, 5.1f, 1.5f, .8f, 1.35f);
@@ -160,18 +195,37 @@ namespace MedievalCastle.NPC
             headAngles += new Vector3(gaze.y + .5f * breath, gaze.x + 1.1f * Mathf.Sin(t * .64f), 0);
             head.localRotation = Quaternion.Slerp(head.localRotation, restHead * Quaternion.Euler(headAngles), follow);
             float syllable = Mathf.Abs(Mathf.Sin(t * 11.2f) * Mathf.Cos(t * 2.3f));
-            jaw.localPosition = restJaw - Vector3.up * (.006f * syllable * voice);
+            jaw.localPosition = restJaw - Vector3.up * (animatedByAudio ? .008f * mouthOpening : .006f * syllable * voice);
             gestureArm.localRotation = Quaternion.Slerp(gestureArm.localRotation, restArm * Quaternion.Euler(armAngles), follow);
             if (offArm) offArm.localRotation = Quaternion.Slerp(offArm.localRotation,
                 restOffArm * Quaternion.Euler(heldArmAngles), follow);
         }
 
+        private float TurnGuard(Vector3? viewer, float dt)
+        {
+            float desired = 0;
+            if (engaged && viewer.HasValue)
+            {
+                var local = Quaternion.Inverse(restFigure) *
+                    guardFigure.parent.InverseTransformDirection(viewer.Value - guardFigure.position);
+                desired = Mathf.Atan2(local.x, local.z) * Mathf.Rad2Deg;
+            }
+            // The head can respond immediately while the feet complete a slower in-place turn.
+            figureYaw = Mathf.SmoothDampAngle(figureYaw, desired, ref turnVelocity, .26f, 215f, dt);
+            guardFigure.localRotation = restFigure * Quaternion.AngleAxis(figureYaw, Vector3.up);
+            return Mathf.Clamp(.38f * Mathf.DeltaAngle(figureYaw, desired), -27f, 27f);
+        }
+
         private Vector2 LookAngles(Vector3 point)
         {
-            var direction = Quaternion.Inverse(restHead) * head.parent.InverseTransformDirection(point - head.position).normalized;
+            // The guard's Head pivot sits at the neck. Aim from the eye patches on the visor opening.
+            Vector3 eye = guardFigure ? head.TransformPoint(0f, .168f, .096f) : head.position;
+            var direction = Quaternion.Inverse(restHead) * head.parent.InverseTransformDirection(point - eye).normalized;
             float yaw = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
             float pitch = -Mathf.Asin(Mathf.Clamp(direction.y, -1f, 1f)) * Mathf.Rad2Deg;
-            return new Vector2(Mathf.Clamp(yaw,-35f,35f), Mathf.Clamp(pitch,-13f,17f));
+            return guardFigure
+                ? new Vector2(Mathf.Clamp(yaw, -57f, 57f), Mathf.Clamp(pitch, -31f, 40f))
+                : new Vector2(Mathf.Clamp(yaw, -35f, 35f), Mathf.Clamp(pitch, -13f, 17f));
         }
 
         private static float Beat(float time, float cycle, float start, float rise, float hold, float fall)

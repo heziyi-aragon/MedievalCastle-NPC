@@ -1,9 +1,13 @@
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.XR;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR;
+
+[assembly: InternalsVisibleTo("CastleNPC.Exploration.PlayModeTests")]
 
 namespace MedievalCastle
 {
@@ -18,9 +22,32 @@ namespace MedievalCastle
         private InputAction headPosition, headRotation, headTracking;
         private Camera playerCamera;
         private bool headset, configured;
+        internal const float EyeHeight = 1.75f;
+        private Transform heightOffset;
+        private bool calibrated;
+        private readonly List<XRInputSubsystem> inputSubsystems = new List<XRInputSubsystem>();
+        private XRInputSubsystem inputSubsystem;
+        private TrackingOriginModeFlags sampledMode;
+        private float minHeight, maxHeight, stableSeconds, heightSum, sampledFloorOffset;
+        private int stableSamples;
 
-        private void OnEnable() => SceneManager.sceneLoaded += WhenSceneIsReady;
-        private void OnDisable() => SceneManager.sceneLoaded -= WhenSceneIsReady;
+        private void OnEnable()
+        {
+            SceneManager.sceneLoaded += WhenSceneIsReady;
+            InputDevices.deviceConnected += OnDeviceConnected;
+        }
+
+        private void OnDisable()
+        {
+            SceneManager.sceneLoaded -= WhenSceneIsReady;
+            InputDevices.deviceConnected -= OnDeviceConnected;
+        }
+
+        private void OnDeviceConnected(UnityEngine.XR.InputDevice device)
+        {
+            if (headset && (device.characteristics & InputDeviceCharacteristics.HeadMounted) != 0)
+                ResetCalibration();
+        }
 
         private void WhenSceneIsReady(Scene scene, LoadSceneMode mode)
         {
@@ -55,12 +82,14 @@ namespace MedievalCastle
                 headsetSpawn ? headsetSpawn.rotation : Quaternion.identity);
             var offset = new GameObject("Camera Offset");
             offset.transform.SetParent(player.transform, false);
-            transform.SetParent(offset.transform, false);
+            heightOffset = new GameObject("Eye height calibration").transform;
+            heightOffset.SetParent(offset.transform, false);
+            transform.SetParent(heightOffset, false);
             origin = player.AddComponent<XROrigin>();
             origin.Camera = playerCamera;
             origin.Origin = player;
             origin.CameraFloorOffsetObject = offset;
-            origin.CameraYOffset = 1.65f;
+            origin.CameraYOffset = EyeHeight;
             origin.enabled = false;
             poseDriver = gameObject.AddComponent<TrackedPoseDriver>();
             headPosition = new InputAction("Head Position", InputActionType.Value, "<XRHMD>/centerEyePosition");
@@ -80,17 +109,29 @@ namespace MedievalCastle
         private void Update()
         {
             if (motor && headset != XRSettings.isDeviceActive) SetHeadset(XRSettings.isDeviceActive);
+            if (!headset) return;
+            if (inputSubsystem == null || !inputSubsystem.running)
+            {
+                SubsystemManager.GetInstances(inputSubsystems);
+                inputSubsystem = inputSubsystems.Find(s => s.running);
+            }
+            // Query the running subsystem even if the requested Floor mode was already active
+            // and the runtime never sent a trackingOriginUpdated event to XROrigin.
+            var mode = inputSubsystem != null ? inputSubsystem.GetTrackingOriginMode() : origin.CurrentTrackingOriginMode;
+            bool tracked = (headTracking.ReadValue<int>() & (int)InputTrackingState.Position) != 0;
+            SampleEyeHeight(tracked, headPosition.ReadValue<Vector3>().y, mode, Time.unscaledDeltaTime);
         }
 
-        private void SetHeadset(bool value)
+        internal void SetHeadset(bool value)
         {
             var rig = motor.transform;
             var previousEye = transform.position;
             var previousForward = transform.forward;
             headset = value;
+            ResetCalibration();
             if (value)
             {
-                transform.SetParent(origin.CameraFloorOffsetObject.transform, false);
+                transform.SetParent(heightOffset, false);
                 transform.localPosition = Vector3.zero;
                 transform.localRotation = Quaternion.identity;
                 // Negotiate on an active rig every time Link connects, including after desktop play.
@@ -104,7 +145,7 @@ namespace MedievalCastle
                 origin.enabled = false;
                 // Desktop height is independent of any late tracking-origin notification.
                 transform.SetParent(rig, false);
-                transform.localPosition = Vector3.up * 1.65f;
+                transform.localPosition = Vector3.up * EyeHeight;
                 transform.localRotation = Quaternion.identity;
                 if (configured)
                 {
@@ -117,6 +158,50 @@ namespace MedievalCastle
             }
             motor.Configure(playerCamera, value);
             configured = true;
+        }
+
+        private void ResetCalibration()
+        {
+            calibrated = false;
+            stableSamples = 0;
+            sampledMode = TrackingOriginModeFlags.Unknown;
+            heightOffset.localPosition = Vector3.zero;
+        }
+
+        internal void SampleEyeHeight(bool tracked, float rawHeight, TrackingOriginModeFlags mode, float dt)
+        {
+            float floorOffset = heightOffset.parent.localPosition.y;
+            if (mode != sampledMode || !Mathf.Approximately(sampledFloorOffset, floorOffset))
+            {
+                ResetCalibration();
+                sampledMode = mode;
+                sampledFloorOffset = floorOffset;
+            }
+            if (calibrated || !headset) return;
+            // Core Utils owns the parent offset (zero for Floor, nominal height for Device).
+            // Calibrate a separate node once so later leaning or crouching is still 1:1.
+            float height = floorOffset + rawHeight;
+            if (!tracked || mode == TrackingOriginModeFlags.Unknown || !(height >= .30f && height <= 2.65f))
+            {
+                stableSamples = 0;
+                return;
+            }
+            if (stableSamples == 0 || height < maxHeight - .035f || height > minHeight + .035f)
+            {
+                stableSamples = 0;
+                stableSeconds = heightSum = 0;
+                minHeight = maxHeight = height;
+            }
+            minHeight = Mathf.Min(minHeight, height);
+            maxHeight = Mathf.Max(maxHeight, height);
+            heightSum += height;
+            stableSamples++;
+            stableSeconds += Mathf.Min(.05f, dt);
+            if (stableSamples >= 6 && stableSeconds >= .30f)
+            {
+                heightOffset.localPosition = Vector3.up * (EyeHeight - heightSum / stableSamples);
+                calibrated = true;
+            }
         }
 
         private void OnDestroy()

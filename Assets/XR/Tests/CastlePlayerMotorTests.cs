@@ -4,6 +4,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.XR;
 
 namespace MedievalCastle.Tests
 {
@@ -127,6 +128,45 @@ namespace MedievalCastle.Tests
             {
                 CastlePlayerMotor.MovementLocked = previousLock;
                 Object.DestroyImmediate(root);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator SeatedAndStandingSessionsCalibrateOnceAndPreservePhysicalMovement()
+        {
+            yield return SceneManager.LoadSceneAsync("Assets/Scenes/Castle_Exterior.unity", LoadSceneMode.Additive);
+            castleScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
+            yield return null;
+            var view = castleScene.GetRootGameObjects().SelectMany(o => o.GetComponentsInChildren<CastleXRView>()).Single();
+            var feet = view.GetComponentInParent<CastlePlayerMotor>().transform;
+            view.SetHeadset(false);
+            Assert.That(feet.InverseTransformPoint(view.transform.position).y, Is.EqualTo(1.75f).Within(.001f));
+            var spawn = feet.position;
+            foreach (float realHeight in new[] { 1.12f, 1.89f })
+            {
+                view.SetHeadset(true);
+                Transform rigOffset = view.transform.parent;
+                // The simulator supplies the same floor-relative samples as the HMD pose driver.
+                rigOffset.parent.localPosition = Vector3.zero;
+                view.transform.localPosition = Vector3.up * realHeight;
+                for (int i = 0; i < 25; i++)
+                    view.SampleEyeHeight(false, realHeight, TrackingOriginModeFlags.Floor, .02f);
+                Assert.That(rigOffset.localPosition.y, Is.EqualTo(0f).Within(.001f));
+                for (int i = 0; i < 25; i++)
+                    view.SampleEyeHeight(true, realHeight + (i % 2 == 0 ? -.12f : .12f), TrackingOriginModeFlags.Floor, .02f);
+                Assert.That(rigOffset.localPosition.y, Is.EqualTo(0f).Within(.001f), "Wait for a steady pose");
+                for (int i = 0; i < 25; i++)
+                    view.SampleEyeHeight(true, realHeight, TrackingOriginModeFlags.Floor, .02f);
+                Assert.That(feet.InverseTransformPoint(view.transform.position).y, Is.EqualTo(1.75f).Within(.002f));
+                view.transform.localPosition += new Vector3(.18f, -.31f, 0);
+                for (int i = 0; i < 25; i++)
+                    view.SampleEyeHeight(true, realHeight - .31f, TrackingOriginModeFlags.Floor, .02f);
+                var crouch = feet.InverseTransformPoint(view.transform.position);
+                Assert.That(crouch.x, Is.EqualTo(.18f).Within(.002f));
+                Assert.That(crouch.y, Is.EqualTo(1.44f).Within(.002f));
+                Assert.That(feet.position.y, Is.EqualTo(spawn.y).Within(.001f), "Keep the feet on the same floor");
+                view.SetHeadset(false);
+                Assert.That(feet.InverseTransformPoint(view.transform.position).y, Is.EqualTo(1.75f).Within(.001f));
             }
         }
 

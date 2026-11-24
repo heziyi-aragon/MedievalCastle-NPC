@@ -7,6 +7,28 @@ namespace MedievalCastle.Npc.Tests
 {
     public sealed class NpcProviderTests
     {
+        [Test]
+        public void SpeechDecodesSignedLittleEndianMonoAtTheDocumentedRate()
+        {
+            var clip = DeepSeekNpcSpeech.DecodePcm(new byte[] { 0, 128, 0, 0, 255, 127 });
+            try
+            {
+                var samples = new float[3];
+                Assert.That(clip.channels, Is.EqualTo(1));
+                Assert.That(clip.frequency, Is.EqualTo(24000));
+                Assert.That(clip.GetData(samples, 0), Is.True);
+                Assert.That(samples, Is.EqualTo(new[] { -1f, 0f, 32767f / 32768f }).Within(.0001f));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(clip); }
+        }
+
+        [Test]
+        public void EmptyAndPartialPcmAreRejected()
+        {
+            Assert.Throws<FormatException>(() => DeepSeekNpcSpeech.DecodePcm(Array.Empty<byte>()));
+            Assert.Throws<FormatException>(() => DeepSeekNpcSpeech.DecodePcm(new byte[3]));
+        }
+
         [Serializable] private sealed class WireRequest
         {
             public string model = null;

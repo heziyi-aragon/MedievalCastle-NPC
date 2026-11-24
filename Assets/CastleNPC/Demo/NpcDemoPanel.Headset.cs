@@ -1,4 +1,3 @@
-using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR;
@@ -9,14 +8,14 @@ namespace MedievalCastle.Npc.Demo
     {
         private enum HudChoice { Prompt1, Prompt2, Prompt3, NextPage, Retry, End }
         private readonly HudChoice[] hudChoices = new HudChoice[5];
-        private readonly StringBuilder optionText = new StringBuilder(192);
+
         private int choiceCount, headsetChoice, menuChoice, replyPage;
         private float nextHudDraw;
         private bool primaryHeld, backHeld, stickHeld, handConnected, replyIsChinese;
         private Camera headsetCamera;
         private Canvas headsetCanvas;
         private RectTransform hudRect;
-        private Text hudTitle, hudBody, hudOptions, hudHint;
+        private Text hudBody;
 
         private void UpdateHeadset()
         {
@@ -86,6 +85,7 @@ namespace MedievalCastle.Npc.Demo
                 nextHudDraw = Time.unscaledTime + .1f;
                 PaintHud();
             }
+            else if (InConversation && !MenuOpen && questions) FacePlayer(camera);
         }
 
         private int PageLength => replyIsChinese ? 48 : 112;
@@ -129,47 +129,21 @@ namespace MedievalCastle.Npc.Demo
 
         private void PaintHud()
         {
+            RefreshWorldCards(headsetCamera, true);
             if (MenuOpen)
             {
                 headsetCanvas.gameObject.SetActive(false);
                 ShowLanguageSheet(headsetCamera, true);
                 return;
             }
-            bool exploring = !InConversation;
-            string line = exploring ? ExploreText(true) : ConversationBody();
-            bool visible = !exploring || !string.IsNullOrEmpty(line);
-            if (headsetCanvas.gameObject.activeSelf != visible) headsetCanvas.gameObject.SetActive(visible);
-            if (!visible) return;
-            float top = 10f;
-            top = SetHudLine(hudTitle, top, exploring ? "" : RoleName(role), 38);
-            if (InConversation && HasPages)
+            string line = InConversation ? "" : ExploreText(true);
+            headsetCanvas.gameObject.SetActive(line.Length != 0);
+            if (line.Length != 0)
             {
-                int pages = (result.Reply.Length + PageLength - 1) / PageLength;
-                replyPage = Mathf.Clamp(replyPage, 0, pages - 1);
-                int start = replyPage * PageLength;
-                line = "(" + (replyPage + 1) + "/" + pages + ") " +
-                    result.Reply.Substring(start, Mathf.Min(PageLength, result.Reply.Length - start));
+                float height = SetHudLine(hudBody, 10, line, 84);
+                hudRect.sizeDelta = new Vector2(740, height + 10);
             }
-            top = SetHudLine(hudBody, top, line, exploring ? 84 : 96);
-            string options = "";
-            if (!exploring)
-            {
-                SetHudChoices();
-                int index = Mathf.Clamp(headsetChoice, 0, choiceCount - 1);
-                optionText.Clear();
-                for (int i = 0; i < choiceCount; i++)
-                {
-                    if (i > 0) optionText.Append('\n');
-                    optionText.Append(i == index ? "›   " : "     ").Append(ChoiceLabel(hudChoices[i]));
-                }
-                options = optionText.ToString();
-            }
-            top = SetHudLine(hudOptions, top, options, choiceCount * 36f);
-            string hint = exploring ? "" : T("Right stick ↑↓   ·   A to confirm", "右摇杆上下选择   ·   A 确认");
-            top = SetHudLine(hudHint, top, hint, 30);
-            hudRect.sizeDelta = new Vector2(740, top + 10);
         }
-
         private static float SetHudLine(Text text, float top, string value, float maxHeight)
         {
             text.text = value;
@@ -185,10 +159,10 @@ namespace MedievalCastle.Npc.Demo
 
         private void BuildHud(Camera camera)
         {
-            var panel = new GameObject("NPC headset dialogue", typeof(RectTransform), typeof(Canvas), typeof(Image));
+            var panel = new GameObject("NPC exploration hint", typeof(RectTransform), typeof(Canvas), typeof(Image));
             hudRect = (RectTransform)panel.transform;
             hudRect.SetParent(camera.transform, false);
-            // Keep the upper edge below eye level as a long reply expands the panel.
+            // Only the brief exploration hint follows the headset.
             hudRect.pivot = new Vector2(.5f, 1f);
             hudRect.localPosition = new Vector3(0, -.12f, 1.10f);
             hudRect.localScale = Vector3.one * .00122f;
@@ -199,10 +173,7 @@ namespace MedievalCastle.Npc.Demo
             headsetCanvas = panel.GetComponent<Canvas>();
             headsetCanvas.renderMode = RenderMode.WorldSpace;
             headsetCanvas.worldCamera = camera;
-            hudTitle = AddHudLine("Role", 28, AccentColor);
-            hudBody = AddHudLine("Reply", 25, Color.white);
-            hudOptions = AddHudLine("Selection", 24, Color.white);
-            hudHint = AddHudLine("Controls", 21, MutedColor);
+            hudBody = AddHudLine("Hint", 25, Color.white);
             nextHudDraw = 0;
         }
 

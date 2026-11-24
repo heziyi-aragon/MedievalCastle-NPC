@@ -31,7 +31,7 @@ namespace MedievalCastle
             headset = usingHeadset;
             body = GetComponent<CharacterController>();
             body.radius = .24f;
-            body.height = 1.65f;
+            body.height = CastleXRView.EyeHeight + .06f;
             body.center = Vector3.up * (body.height * .5f);
             body.skinWidth = .035f;
             body.minMoveDistance = 0f;

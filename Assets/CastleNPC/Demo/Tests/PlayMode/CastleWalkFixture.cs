@@ -40,6 +40,7 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             Assert.That(Panel.Chinese, Is.False, "A first launch must default to English.");
             Assert.That(Service.Mode, Is.EqualTo(NpcProviderMode.DeepSeek), "The player-facing scene must default to live dialogue.");
             Service.Mode = NpcProviderMode.Offline;
+            Panel.SetSpeechProviderForTesting((_, __, ___) => System.Threading.Tasks.Task.FromResult(TestVoice()));
             float deadline = Time.realtimeSinceStartup + 4f;
             do
             {
@@ -93,6 +94,21 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             }
             Assert.That(arrived(), Is.True,
                 $"Walk to {destination} blocked at {Eye.transform.position}; goal {goal}, near {Panel.Nearby?.RoleId}.");
+        }
+
+        protected static AudioClip TestVoice()
+        {
+            // A changing envelope lets tests observe the animated jaw without network calls.
+            const int sampleRate = 8000;
+            var samples = new float[sampleRate * 2];
+            for (int i = 0; i < samples.Length; i++)
+            {
+                float t = (float)i / sampleRate;
+                samples[i] = .13f * (.5f + .5f * Mathf.Sin(17f * t)) * Mathf.Sin(990f * t);
+            }
+            var clip = AudioClip.Create("Test voice", samples.Length, 1, sampleRate, false);
+            clip.SetData(samples, 0);
+            return clip;
         }
 
         protected IEnumerator Approach(string role)

@@ -51,6 +51,7 @@ namespace MedievalCastle.Npc
         }
 
         public bool IsBusy => inFlight.Count != 0;
+        internal bool UsesDeepSeek => mode == NpcProviderMode.DeepSeek && providerOverride == null;
         public bool HasApiKey => !string.IsNullOrWhiteSpace(DeepSeekNpcProvider.LocalSetting("DEEPSEEK_API_KEY"));
 
         public void SetProviderForTesting(INpcDialogueProvider provider)

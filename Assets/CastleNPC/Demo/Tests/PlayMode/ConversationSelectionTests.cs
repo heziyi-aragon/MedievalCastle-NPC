@@ -107,8 +107,8 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
         {
             var expected = new[] { NpcAction.CheckPass, NpcAction.RequestPurchase, NpcAction.OfferTraining };
             Assert.That(Panel.Nearby, Is.Null);
-            Assert.That(Panel.ExploreText(false), Does.Contain("guard").IgnoreCase.And.Contain("WASD"));
-            Assert.That(Panel.ExploreText(true), Does.Contain("guard").IgnoreCase.And.Contain("stick"));
+            Assert.That(Panel.ExploreText(false), Is.EqualTo("Talk to the guard"));
+            Assert.That(Panel.ExploreText(true), Is.EqualTo("Talk to the guard"));
             Panel.HandleDesktopFrame(Eye, true, false);
             Assert.That(Panel.InConversation, Is.False);
             for (int i = 0; i < expected.Length; i++)

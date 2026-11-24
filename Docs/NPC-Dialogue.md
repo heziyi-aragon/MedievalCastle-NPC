@@ -14,10 +14,11 @@
 
 ## 从城门开始
 
-玩家出生在城门外，首先看到 **Walk up to the guard**。走近黑甲守卫，看到角色名与交谈键时按下即可打招呼。收到守卫第一条有效回复后，结束谈话会看到拜访商人和训练区骑士的提示。三个角色都可以自由拜访。
+玩家出生在城门外，画面显示 **Talk to the guard／跟守卫交流**。走近黑甲守卫按交谈键，他会转身看向玩家、抬手问好。玩家从角色身旁的面板选问句，在角色头顶读台词。招呼期间即可选问句。收到守卫第一条有效回复后，结束谈话会看到拜访商人和训练区骑士的提示。
 
 - **Quest Link** 使用左摇杆行走，速度随推杆幅度变化，最大 1.6 米/秒。右摇杆左右连续转向，轻推微调、满推约 65°/秒。走到角色或马身约 1.6 米以内，右手按 **A** 打招呼，松开后用右摇杆上下选择问句，再按 **A** 发送。选 **End conversation** 后让右摇杆回中，即可继续转向。
 - **电脑** 点击 Game 视图，用 **WASD** 行走、鼠标环顾。走近后按 **E**，可点预设问句或输入自己的问题。打开对话时鼠标会释放，输入文字不会移动角色。
+- **眼高** 电脑视角高 1.75 米。Quest Link 建立连接后，请用平常游玩的姿势看向前方片刻。系统以首次稳定的坐姿或站姿校准到 1.75 米，随后俯身和站起会自然改变视线高度。
 - **设置** 用右手 **B** 或电脑 **Esc** 打开羊皮纸手札。墨色边框指示当前焦点，勾记标出已用语言。用摇杆选择并按 **A** 确认，电脑可直接点选。再按 **B／Esc** 返回原来的谈话或探索。首次启动使用英语，之后会记住选定的语言。
 
 ## DeepSeek 与开发测试
@@ -25,6 +26,12 @@
 玩家对话使用这台电脑的个人 DeepSeek。设置 Windows 用户环境变量 `DEEPSEEK_API_KEY` 后重新进入 Play。可用 `DEEPSEEK_MODEL` 覆盖默认的 `deepseek-flash`。每次发送会结合角色、玩家状态与历史请求一条回复，超时为 30 秒。缺少密钥、余额不足及网络失败时，玩家可在对话中选择 **Retry** 或 **End conversation**。API 密钥只保存在本机。[DeepSeek API 文档](https://api-docs.deepseek.com/api/create-chat-completion/)
 
 编辑器自动测试可为 `NpcDialogueService` 指定离线提供方或注入受控响应，复现交易、训练、失败与迟到回包。正式游戏由玩法层执行并回报有效提议，NPC 面板只负责对话和手势。
+
+### 角色语音
+
+角色使用同一个 `DEEPSEEK_API_KEY` 将有效回复中的 `reply` 送到 DeepSeek 语音合成接口。守卫和商人使用 `tide`，女骑士使用 `stella`。头顶先显示文字，音频就绪后由角色嘴边的 3D 声源播放，口型随实际声音变化。语音服务按字符独立计费。[DeepSeek 语音合成文档](https://api-docs.deepseek.com/zh-cn/guides/tts/)
+
+中文守卫、英文商人和英文骑士的招呼已预置 DeepSeek 合成录音。其余角色与语言组合首次使用时合成，随后在当前场景复用。更换问句或结束交谈会停止之前的台词。语音请求失败时玩家仍可阅读文字、继续提问，玩法层仍能取得本轮有效决策。
 
 ## 成员 3 如何接入
 
@@ -64,7 +71,15 @@ if (turn.Decision.Action == NpcAction.RequestPurchase)
 - `Assets/CastleNPC/Demo/` 保存桌面与头显的演示入口。正式游戏可停用 `NpcDemoPanel`，继续复用同一对象上的 `NpcDialogueService`。
 - Unity **Window → General → Test Runner** 可运行 EditMode 和 PlayMode 测试。普通离线测试不请求 API。手动设置 `CASTLE_NPC_LIVE_TESTS=1` 和 `DEEPSEEK_API_KEY` 后，按 `NpcLive` 分类运行三个真实在线用例。API 服务可能产生调用费用。
 
-### 城门轮廓、待机与转向
+### 城门交谈视听验收 · 2026-11-25
+
+从玩家实际视角录制的 15 秒短片依次展示三名角色的招呼与口型，并展示守卫查验通行证的动作。中文守卫和两句英文招呼均为本次真实 DeepSeek 合成，查证片段使用离线回复字幕。音轨来自 Unity 的立体声混音。[带声音的交谈实录](Gate-Dialogue/Castle-Conversation.mp4)
+
+三名角色的问句板和头顶台词都在原始玩家机位内完整入镜。验证了靠近马身开始交谈、问句板一侧靠墙时重新选边、用鼠标点选和摇杆确认；设置中切换语言会保留当前台词页。[守卫招呼](Gate-Dialogue/guard-game.png) · [守卫查证](Gate-Dialogue/guard-pass.png) · [商人](Gate-Dialogue/merchant-game.png) · [骑士](Gate-Dialogue/knight-game.png)
+
+Unity 2022.3.62f3c1 回归通过 76 项 EditMode 和 27 项 PlayMode 测试。模拟 Quest 从守卫正面、两侧、背面靠近，等到显示守卫名字再按 A，并检查守卫是否看向玩家。另测坐姿与站姿的初始眼高、俯身与重连、招呼缓存、打断和迟到音频。三项在线聊天用例跳过。三句语音合成已实测，守卫首个请求未收到响应，重试后成功，客户端无法确定首次请求的计费状态。本机 OpenXR 报告未检测到可用头显，Quest 真机眼高、双眼可读性及耳机播放仍待确认。
+
+### 历史记录 · 城门轮廓、待机与转向
 
 - 同机位、同光照的城门合照与三个全身侧面可逐项比较。守卫胸甲从约 47 厘米加宽到 51 厘米，商人腰线收紧、袍摆外展，骑士的分片裙甲顺着马侧垂下，后腿落点区分承重与休息姿态。[城门合照对比](Courtyard-Polish/Courtyard-Comparison.jpg) · [守卫侧面](Courtyard-Polish/Guard-Side.jpg) · [商人侧面](Courtyard-Polish/Merchant-Side.jpg) · [骑士侧面](Courtyard-Polish/Knight-Side.jpg)
 - 三套 GLB 分别有 85,606、96,906 和 99,968 个三角形，每套使用一个材质。守卫的柄与指、商人的账册与指跟随同一只手臂。骑士与战马的握缰接点、裙甲与鞍座已做网格检查，马尾由独立的 `HorseTail` 节点驱动。

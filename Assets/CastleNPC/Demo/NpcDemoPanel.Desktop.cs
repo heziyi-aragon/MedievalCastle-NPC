@@ -7,8 +7,8 @@ namespace MedievalCastle.Npc.Demo
     public sealed partial class NpcDemoPanel
     {
         private GUISkin desktopSkin;
-        private GUIStyle headingStyle, captionStyle, speechStyle, promptStyle;
-        private Vector2 desktopScroll;
+        private GUIStyle speechStyle;
+
         private bool clearTextFocus;
         private CastleLanguageMenu languageSheet;
         private bool seenMenuPointer;
@@ -99,6 +99,7 @@ namespace MedievalCastle.Npc.Demo
             }
             else if (!MenuOpen && !InConversation && interactPressed)
                 BeginNearby(camera.transform);
+            RefreshWorldCards(camera, false);
             if (MenuOpen)
             {
                 ShowLanguageSheet(camera, false);
@@ -121,18 +122,11 @@ namespace MedievalCastle.Npc.Demo
 
         private void ResetDialoguePresentation()
         {
-            desktopScroll = Vector2.zero;
+            ReleaseWorldCards();
             clearTextFocus = true;
             headsetChoice = 0;
             replyPage = 0;
             nextHudDraw = 0;
-        }
-
-        private string ConversationBody()
-        {
-            if (Pending) return T("Waiting for a reply…", "正在等待回复…");
-            if (Failed) return T("Unable to get a reply right now.", "暂时无法取得回复。");
-            return result?.Reply ?? "";
         }
 
         private void BuildDesktopSkin(GUISkin original)
@@ -149,12 +143,7 @@ namespace MedievalCastle.Npc.Demo
             desktopSkin.button.wordWrap = true;
             desktopSkin.button.padding = new RectOffset(10, 10, 4, 4);
             desktopSkin.textField.padding = new RectOffset(8, 8, 5, 4);
-            headingStyle = new GUIStyle(desktopSkin.label) { fontSize = 19, fontStyle = FontStyle.Bold };
-            headingStyle.normal.textColor = AccentColor;
-            captionStyle = new GUIStyle(desktopSkin.label) { fontSize = 13, wordWrap = true };
-            captionStyle.normal.textColor = MutedColor;
             speechStyle = new GUIStyle(desktopSkin.label) { fontSize = 16, wordWrap = true };
-            promptStyle = new GUIStyle(desktopSkin.button) { alignment = TextAnchor.MiddleLeft };
         }
 
         private static void Fill(Rect bounds, Color color)
@@ -195,8 +184,8 @@ namespace MedievalCastle.Npc.Demo
                     GUI.FocusControl(null);
                     clearTextFocus = false;
                 }
-                if (InConversation) DrawTalk(width, height);
-                else DrawExplorationHint(width, height);
+                if (!InConversation) DrawExplorationHint(width, height);
+
             }
             finally { GUI.skin = original; GUI.matrix = matrix; }
         }
@@ -235,60 +224,5 @@ namespace MedievalCastle.Npc.Demo
             return hover >= 0;
         }
 
-        private void DrawTalk(float width, float height)
-        {
-            float w = Mathf.Min(width - 24, Mathf.Clamp(width * .40f, 310, 430));
-            float h = Mathf.Min(height - 24, 325);
-            var bounds = new Rect(width - w - 12, height - h - 12, w, h);
-            DrawBackdrop(bounds);
-            GUILayout.BeginArea(new Rect(bounds.x + 14, bounds.y + 9, w - 28, h - 18));
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(RoleName(role), headingStyle);
-            bool finish = GUILayout.Button(T("End conversation", "结束交谈"), GUILayout.Width(chinese ? 89 : 146), GUILayout.Height(28));
-            GUILayout.EndHorizontal();
-            desktopScroll = GUILayout.BeginScrollView(desktopScroll);
-            if (!string.IsNullOrWhiteSpace(sentText))
-                GUILayout.Label(T("You · ", "你 · ") + sentText, captionStyle);
-            var line = ConversationBody();
-            if (line.Length > 0) GUILayout.Label(line, speechStyle);
-            if (Failed)
-            {
-                if (GUILayout.Button(T("Retry", "重试"), GUILayout.MinHeight(30))) Retry();
-            }
-            else if (!Pending)
-            {
-                for (int i = 0; i < 3; i++)
-                    if (GUILayout.Button(Prompt(i), promptStyle, GUILayout.MinHeight(29))) Submit(Prompt(i));
-                DrawMessageInput();
-            }
-            GUILayout.EndScrollView();
-            GUILayout.EndArea();
-            if (finish) EndTalk();
-        }
-
-        private void DrawMessageInput()
-        {
-            var ev = Event.current;
-            bool enter = ev.type == EventType.KeyDown &&
-                (ev.keyCode == KeyCode.Return || ev.keyCode == KeyCode.KeypadEnter) &&
-                GUI.GetNameOfFocusedControl() == "NpcMessage" && string.IsNullOrEmpty(Input.compositionString);
-            if (enter) ev.Use();
-            GUILayout.Space(4);
-            GUILayout.Label(T("Your question", "你的问题"), captionStyle);
-            GUILayout.BeginHorizontal();
-            GUI.SetNextControlName("NpcMessage");
-            typed = GUILayout.TextField(typed, 1000, GUILayout.MinWidth(0), GUILayout.ExpandWidth(true), GUILayout.MinHeight(29));
-            bool canSend = !string.IsNullOrWhiteSpace(typed);
-            var wasEnabled = GUI.enabled;
-            GUI.enabled = wasEnabled && canSend;
-            bool send = GUILayout.Button(T("Send", "发送"), GUILayout.Width(62), GUILayout.MinHeight(29));
-            GUI.enabled = wasEnabled;
-            GUILayout.EndHorizontal();
-            if (canSend && (send || enter))
-            {
-                Submit(typed);
-                typed = "";
-            }
-        }
     }
 }
