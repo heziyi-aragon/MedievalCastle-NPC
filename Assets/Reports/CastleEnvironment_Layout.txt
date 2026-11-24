@@ -1,0 +1,12 @@
+Castle Environment First-Pass Layout
+GeneratedUtc=2026-11-23T16:49:41.4123851Z
+Scene=Assets/Scenes/Castle_Exterior.unity
+GateAnchor=(0.00, 0.00, 25.55)
+GuardCenter=(0.00, 0.00, 30.05)
+MarketCenter=(15.50, 0.00, 33.55)
+TrainingCenter=(-16.50, 0.00, 35.05)
+Trees=24
+GuardProps=8
+MarketProps=10
+TrainingProps=15
+GroundDetails=17

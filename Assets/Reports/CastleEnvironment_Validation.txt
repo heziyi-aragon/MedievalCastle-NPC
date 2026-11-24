@@ -1,0 +1,14 @@
+Castle Environment Validation
+CapturedUtc=2026-11-23T16:55:13.1486916Z
+Passed=True
+RequiredZones=6
+MissingZones=<none>
+Trees=24
+EnabledForestColliders=0
+EntranceCorridorObstacles=0
+EnvironmentRenderers=403
+MissingMaterialSlots=0
+ErrorShaderMaterials=0
+ConsoleErrors=0
+ConsoleWarnings=0
+ConsoleLogs=0

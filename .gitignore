@@ -41,6 +41,7 @@
 
 # Visual Studio cache directory
 .vs/
+.vscode/
 
 # Gradle cache directory
 .gradle/
@@ -105,3 +106,10 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# Unity Asset Store source packages are licensed per user and must not be
+# redistributed through this public repository. See ASSET_SETUP.md.
+/Assets/Moudles/Realistic Tree/
+/Assets/Moudles/Realistic Tree.meta
+/Assets/Moudles/RPG MEDIEVAL PROPS/
+/Assets/Moudles/RPG MEDIEVAL PROPS.meta

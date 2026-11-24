@@ -171,3 +171,4 @@ Packages/packages-lock.json linguist-generated
 LightingData.asset     binary
 "Assets/New Terrain.asset"                         binary -eol
 "Assets/Scenes/Backup/New Terrain_BeforeTerrainWork.asset" binary -eol
+"Assets/Scenes/Backup/New Terrain_BeforeEnvironment.asset" binary -eol
