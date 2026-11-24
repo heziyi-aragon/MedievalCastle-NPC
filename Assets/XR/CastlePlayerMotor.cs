@@ -10,7 +10,7 @@ namespace MedievalCastle
     public sealed class CastlePlayerMotor : MonoBehaviour
     {
         [SerializeField] private float walkingSpeed = 1.6f;
-        [SerializeField, Min(1f)] private float turnSpeed = 65f;
+        [SerializeField, Min(1f)] private float turnSpeed = 50f;
         private const float DeadZone = .16f;
         private const float TurnDeadZone = .18f;
         private CharacterController body;

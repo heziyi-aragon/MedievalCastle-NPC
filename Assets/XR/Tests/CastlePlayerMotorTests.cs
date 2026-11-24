@@ -96,21 +96,25 @@ namespace MedievalCastle.Tests
                 Sample(Vector2.right, 1);
                 Assert.That(Yaw(), Is.InRange(.005f, .35f), "Ease in on the first frame.");
                 Sample(Vector2.right, fps - 1);
-                Assert.That(Yaw(), Is.EqualTo(61.1f).Within(.05f), "65 degrees/s after 0.12s ramp.");
+                Assert.That(Yaw(), Is.EqualTo(47f).Within(.05f), "Full deflection eases up to 50 degrees/s in 0.12 s.");
+                float atFullSpeed = Yaw();
+                Sample(Vector2.right, fps);
+                Assert.That(Mathf.DeltaAngle(atFullSpeed, Yaw()), Is.EqualTo(50f).Within(.05f));
                 float beforeRelease = Yaw();
                 Sample(Vector2.zero, fps);
-                Assert.That(Mathf.DeltaAngle(beforeRelease, Yaw()), Is.EqualTo(2.6f).Within(.04f));
+                Assert.That(Mathf.DeltaAngle(beforeRelease, Yaw()), Is.EqualTo(2f).Within(.04f), "Coast to rest in 0.08 s.");
                 var worldEye = eye.transform.position;
                 Assert.That(Vector2.Distance(new Vector2(worldEye.x, worldEye.z), new Vector2(pivot.x, pivot.z)),
                     Is.LessThan(.01f), "The camera should turn in place even after a physical sidestep.");
                 float halfStart = Yaw();
                 Sample(Vector2.right * .59f, fps); // halfway between the dead zone and the end of travel
-                Assert.That(Mathf.DeltaAngle(halfStart, Yaw()), Is.EqualTo(31.525f).Within(.05f));
+                Assert.That(Mathf.DeltaAngle(halfStart, Yaw()), Is.EqualTo(24.25f).Within(.05f));
                 float beforeReverse = Yaw();
                 Sample(Vector2.left, 1);
                 Assert.That(Mathf.DeltaAngle(beforeReverse, Yaw()), Is.GreaterThan(0f), "Ease through a reversal.");
-                Sample(Vector2.left, fps);
-                Assert.That(Mathf.DeltaAngle(beforeReverse, Yaw()), Is.LessThan(-50f));
+                Sample(Vector2.left, fps - 1);
+                Assert.That(Mathf.DeltaAngle(beforeReverse, Yaw()), Is.EqualTo(-43.25f).Within(.05f),
+                    "Reverse from +25 to -50 degrees/s over 0.18 s, then hold the new rate.");
                 float paused = Yaw();
                 CastlePlayerMotor.MovementLocked = true;
                 Sample(Vector2.left, fps);
@@ -122,7 +126,7 @@ namespace MedievalCastle.Tests
                     "Sliding sideways from a menu selection must not steer until the stick returns to center.");
                 Sample(Vector2.zero, 1);
                 Sample(Vector2.left, fps);
-                Assert.That(Mathf.DeltaAngle(paused, Yaw()), Is.EqualTo(-61.1f).Within(.05f));
+                Assert.That(Mathf.DeltaAngle(paused, Yaw()), Is.EqualTo(-47f).Within(.05f));
             }
             finally
             {

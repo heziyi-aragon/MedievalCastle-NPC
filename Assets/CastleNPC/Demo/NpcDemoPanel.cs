@@ -149,8 +149,8 @@ namespace MedievalCastle.Npc.Demo
 
         internal string ExploreText(bool headset)
         {
-            string next = T("Face the gate. Visit the merchant on the left and the knight on the right.",
-                "面向城门，左边市集找商人，右边训练场找骑士。");
+            string next = T("Face the gate. The merchant is on the left. Follow the wall right to the knight.",
+                "面向城门，左边市集找商人，向右沿城墙找骑士。");
             if (Nearby)
             {
                 if (obstructedRole == nearRole) return T("Step to one side to talk.", "向旁边走一步再交谈。");

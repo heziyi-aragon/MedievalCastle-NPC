@@ -114,9 +114,22 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             return clip;
         }
 
+        // From the gate, walk along the wall outside the checkpoint barrels and the yard fence.
+        // Approach the flank of the horse from the open end of the fence, as a player would.
+        private Vector3 GateApproach => new Vector3(Spawn.position.x, 0f, 27.25f);
+        private static readonly Vector3 FenceEndApproach = new Vector3(-8.95f, 0f, 27.25f);
+
+        private IEnumerator WalkPast(Vector3 point, string landmark) =>
+            WalkTo(point, () => Flat(point - Eye.transform.position).magnitude < .12f, landmark);
+
         protected IEnumerator Approach(string role)
         {
             var actor = Actor(role);
+            if (role == "knight")
+            {
+                yield return WalkPast(GateApproach, "the forecourt outside the gate");
+                yield return WalkPast(FenceEndApproach, "the wall side of the training fence");
+            }
             var shape = role == "knight"
                 ? actor.transform.Find("Horse barrel").GetComponent<CapsuleCollider>()
                 : actor.GetComponent<CapsuleCollider>();
@@ -125,6 +138,11 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
 
         protected IEnumerator ReturnToSpawn()
         {
+            if (Flat(Eye.transform.position - Actor("knight").transform.position).magnitude < 4f)
+            {
+                yield return WalkPast(FenceEndApproach, "the outside of the fence on the return path");
+                yield return WalkPast(GateApproach, "the forecourt on the return path");
+            }
             yield return WalkTo(Spawn.position, () => Flat(Spawn.position - Eye.transform.position).magnitude < .14f, "spawn");
             Assert.That(Panel.Nearby, Is.Null);
         }

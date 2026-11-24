@@ -153,15 +153,23 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             var landmarks = Castle.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<Transform>()).ToArray();
             var grate = landmarks.Single(t => t.name == "Portcullis").GetComponent<BoxCollider>();
             var stall = landmarks.Single(t => t.name == "MarketStall");
-            var dummy = landmarks.Single(t => t.name == "TrainingDummy_B");
+            var yard = landmarks.Single(t => t.name == "TrainingYard");
             var merchant = Actor("merchant").transform.position;
-            var knight = Actor("knight").transform.position;
+            var knight = Actor("knight");
             var guard = Actor("guard").transform.position;
 
             Assert.That(Vector3.Dot(merchant - Spawn.position, Spawn.right), Is.LessThan(-5f));
-            Assert.That(Vector3.Dot(knight - Spawn.position, Spawn.right), Is.GreaterThan(5f));
+            Assert.That(Vector3.Dot(knight.transform.position - Spawn.position, Spawn.right), Is.GreaterThan(5f));
             Assert.That(Flat(merchant - stall.position).magnitude, Is.LessThan(5f), "Shopkeeper at the market stall");
-            Assert.That(Flat(knight - dummy.position).magnitude, Is.LessThan(6f), "Mounted knight at the training yard entrance");
+            var fences = landmarks.Where(t => t.parent == yard && (t.name == "Fence1" || t.name == "Fence2"))
+                .SelectMany(t => t.GetComponentsInChildren<MeshRenderer>()).ToArray();
+            Assert.That(fences, Is.Not.Empty, "The training yard must have visible fence segments.");
+            // Castle_Exterior's wall-side row is the row with the lowest world Z value.
+            float outsideEdge = fences.Min(f => f.bounds.min.z);
+            var meshes = knight.GetComponentsInChildren<MeshRenderer>();
+            Assert.That(meshes, Is.Not.Empty);
+            float innerEdge = meshes.Max(m => m.bounds.max.z);
+            Assert.That(innerEdge, Is.LessThan(outsideEdge - .3f), "The rider, head, tail and hooves must all clear the fence.");
             Assert.That(Vector3.Angle(Flat(guard - Spawn.position), Spawn.forward), Is.LessThan(25f),
                 "The guard must be ahead when facing the castle");
 
@@ -169,6 +177,12 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             var inside = gate + Spawn.forward * 1.5f;
             yield return WalkTo(inside, () => Flat(inside - Eye.transform.position).magnitude < .20f,
                 "the middle of the gateway past the guard and raised grate");
+            yield return Approach("knight");
+            Assert.That(Motor.GetComponent<CharacterController>().bounds.max.z, Is.LessThan(outsideEdge),
+                "A player arriving from the gate can speak from outside the fence.");
+            Panel.HandleDesktopFrame(Eye, true, false);
+            Assert.That(Panel.SelectedRole, Is.EqualTo(2));
+            Assert.That(Panel.transform.Find("NPC questions").gameObject.activeSelf, Is.True);
         }
 
         [UnityTest]
