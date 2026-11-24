@@ -108,8 +108,8 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
         {
             var expected = new[] { NpcAction.CheckPass, NpcAction.RequestPurchase, NpcAction.OfferTraining };
             Assert.That(Panel.Nearby, Is.Null);
-            Assert.That(Panel.ExploreText(false), Is.EqualTo("Talk to the guard"));
-            Assert.That(Panel.ExploreText(true), Is.EqualTo("Talk to the guard"));
+            Assert.That(Panel.ExploreText(false), Is.Empty);
+            Assert.That(Panel.ExploreText(true), Is.Empty);
             Panel.HandleDesktopFrame(Eye, true, false);
             Assert.That(Panel.InConversation, Is.False);
             for (int i = 0; i < expected.Length; i++)
@@ -117,7 +117,7 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
                 string role = NpcDemoScenario.Roles[i];
                 yield return Approach(role);
                 Assert.That(Flat(Eye.transform.position - Spawn.position).magnitude, Is.GreaterThan(.7f));
-                Assert.That(Panel.ExploreText(false), Does.Contain("E").And.Contain(NpcDemoScenario.RoleName(i, false)));
+                Assert.That(Panel.ExploreText(false), Is.EqualTo("E · Talk to " + NpcDemoScenario.RoleName(i, false)));
                 Assert.That(Panel.SelectedRole, Is.EqualTo(-1), "Walking near a character alone must not select them.");
                 Panel.HandleDesktopFrame(Eye, true, false);
                 Assert.That(Panel.SelectedRole, Is.EqualTo(i));
@@ -256,6 +256,8 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             var reopened = Castle.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<NpcDemoPanel>()).Single();
             Assert.That(reopened.Chinese, Is.True, "A new Castle_Exterior session must restore the saved language.");
             Assert.That(reopened.MenuOpen || reopened.InConversation, Is.False);
+            Assert.That(reopened.ExploreText(false), Is.Empty);
+            Assert.That(reopened.ExploreText(true), Is.Empty);
         }
 
         [UnityTest, Category("Desktop")]

@@ -20,14 +20,21 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
         {
             // Feed controller samples explicitly, independently of a connected headset or XR loader.
             Panel.enabled = false;
+            Panel.SetLanguage(true);
             var knight = Actor("knight");
             var body = knight.GetComponent<CapsuleCollider>();
             var horse = knight.transform.Find("Horse barrel").GetComponent<CapsuleCollider>();
             Eye.transform.LookAt(horse.bounds.center);
             Frame(); Frame(a: true); Frame();
+            var hint = Eye.transform.Find("NPC exploration hint");
+            Assert.That(hint.gameObject.activeSelf, Is.False, "The spawn view must also hide the hint background.");
             Assert.That(Panel.InConversation, Is.False);
             Assert.That(Panel.LastTurn, Is.Null);
             yield return Approach("knight");
+            yield return new WaitForSecondsRealtime(.12f);
+            Frame();
+            Assert.That(hint.gameObject.activeSelf, Is.True);
+            Assert.That(hint.Find("Hint").GetComponent<Text>().text, Is.EqualTo("A · 与骑士交谈"));
 
             // The rider is still outside speaking range. The head, neck or barrel of the horse has
             // already brought its owner inside the radius.

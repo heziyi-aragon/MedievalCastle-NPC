@@ -158,9 +158,7 @@ namespace MedievalCastle.Npc.Demo
                 string action = (headset ? "A" : "E") + (chinese ? " · 与" + name + "交谈" : " · Talk to " + name);
                 return guardWelcomed && !exploredAfterGuard && nearRole == 0 ? action + "\n" + next : action;
             }
-            if (!guardWelcomed)
-                return T("Talk to the guard", "跟守卫交流");
-            return exploredAfterGuard ? "" : next;
+            return guardWelcomed && !exploredAfterGuard ? next : string.Empty;
         }
 
         internal void BeginNearby(Transform observer)
