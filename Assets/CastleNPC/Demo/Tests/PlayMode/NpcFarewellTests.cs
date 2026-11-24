@@ -12,9 +12,9 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
     public sealed class NpcFarewellTests : CastleWalkFixture
     {
         private static readonly string[] English =
-            { "Safe travels, traveler.", "Take care, my friend. Come by again.", "Chin up! See you on the training field!" };
+            { "Safe travels, traveler.", "Take care, my friend. Come by again.", "Dismissed. See you on the training field." };
         private static readonly string[] Chinese =
-            { "一路平安，旅行者。", "慢走啊，老朋友。下回再来看看。", "昂首向前！训练场见！" };
+            { "一路平安，旅行者。", "慢走啊，老朋友。下回再来看看。", "解散。训练场见。" };
 
         private Transform Questions => Panel.transform.Find("NPC questions");
         private Transform Caption => Panel.transform.Find("NPC speech");

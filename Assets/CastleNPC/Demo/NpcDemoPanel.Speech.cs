@@ -41,7 +41,7 @@ namespace MedievalCastle.Npc.Demo
             {
                 case "guard": return zh ? "你好，旅行者。" : "Hello, traveler.";
                 case "merchant": return zh ? "欢迎光临，旅行者。想看看什么？" : "Welcome, traveler. What catches your eye?";
-                default: return zh ? "你好，旅行者。是来参加训练的吗？" : "Greetings, traveler. Are you here to train?";
+                default: return zh ? "抬头，新兵。准备好操练了吗？" : "Eyes front, recruit. Ready for the drill?";
             }
         }
 
@@ -68,7 +68,7 @@ namespace MedievalCastle.Npc.Demo
             {
                 case "guard": farewell = T("Safe travels, traveler.", "一路平安，旅行者。"); break;
                 case "merchant": farewell = T("Take care, my friend. Come by again.", "慢走啊，老朋友。下回再来看看。"); break;
-                default: farewell = T("Chin up! See you on the training field!", "昂首向前！训练场见！"); break;
+                default: farewell = T("Dismissed. See you on the training field.", "解散。训练场见。"); break;
             }
             farewellStartedAt = Time.unscaledTime;
             actor.Listen(listener);
@@ -101,7 +101,7 @@ namespace MedievalCastle.Npc.Demo
                         clip = await speechOverride(actor.RoleId, line, request.Token);
                     else if (service.UsesDeepSeek)
                     {
-                        // Three recorded welcome lines ship with the scene for immediate playback.
+                        // Use a shipped welcome when available for this role and language.
                         var saved = greeting ? Resources.Load<AudioClip>(
                             "CastleNpcGreetings/" + actor.RoleId + (zh ? "-zh" : "-en")) : null;
                         clip = saved ? Instantiate(saved) : await DeepSeekNpcSpeech.GenerateAsync(actor.RoleId, line, request.Token);

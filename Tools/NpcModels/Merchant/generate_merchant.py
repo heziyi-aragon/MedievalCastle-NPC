@@ -43,6 +43,12 @@ for i,c in enumerate(base):
     if i==6:noise+=5*np.sin(xx*.48+yy*.033+2*np.sin(.019*yy))+3*np.sin(xx*.25+.1*yy)
     im=Image.fromarray(np.uint8(np.clip(np.array(c)+noise[:,:,None],0,255)))
     d=ImageDraw.Draw(im)
+    if i==5:
+        # Reserve the last few rows of the skin swatch for warm, translucent nails.
+        n=T//8
+        nail=np.array([187.,131,105])+np.random.default_rng(3801).normal(0,1.2,(n,T,1))
+        nail[:3,:,:]+=np.array([12,14,13])
+        im.paste(Image.fromarray(np.uint8(np.clip(nail,0,255))),(0,T-n))
     if i==15:
         # UV-space painted facial planes: warm cheeks, cooler beard shadow and eye sockets.
         u=np.minimum(xx/T,1-xx/T); h=1.476+(1-yy/T)*.292
@@ -55,6 +61,25 @@ for i,c in enumerate(base):
         skin+=glaze(.008,1.666,.036,.037)*[7,7,5]
         skin+=glaze(.052,1.620,.040,.006)*[-8,-6,-4]
         skin+=glaze(.115,1.614,.021,.014)*[11,8,6]
+        # Short, broken whiskers underneath the sculpted hair continue onto the cheeks.
+        a=u*tau
+        cheekline=1.532+.086*(a/1.98)**1.28+.008*np.exp(-((a-.58)/.28)**2)
+        density=np.clip((cheekline+.016-h)/.018,0,1)*np.clip((2.04-a)/.15,0,1)
+        whiskers=np.random.default_rng(1297)
+        skin=skin*(1-.87*density[:,:,None])+np.array([93,91,82])*.87*density[:,:,None]
+        grain=whiskers.normal(0,8,(T,T))+5*np.cos(20*a+xx*.29+yy*.13)
+        skin+=density[:,:,None]*grain[:,:,None]
+        # Fine pigment and grey roots lead into the sweep below the nose.
+        # Unpack the atlas padding so hairs on each side of the UV seam meet.
+        fu=np.clip((xx/T-.008)/.984,0,1)
+        fy=1.476+.292*(1-np.clip((yy/T-.008)/.984,0,1))
+        angle=np.minimum(fu,1-fu)*tau
+        fx=np.abs(.091*np.sin(angle))
+        track=np.clip((fx-.002)/.052,0,1)
+        hairline=1.568+.002*np.sin(pi*track)-.014*track**1.5
+        roots=np.exp(-((fy-hairline)/.0065)**2)*np.clip((.062-fx)/.015,0,1)
+        roots*=np.clip((1.2-angle)/.3,0,1)*(.67+.33*np.clip(fx/.007,0,1))
+        skin+=(np.array([-64,-35,-14])+grain[:,:,None])*roots[:,:,None]
         im=Image.fromarray(np.uint8(np.clip(skin,0,255)));d=ImageDraw.Draw(im)
     if i in [0,1]:
         for row in range(-1,6):
@@ -131,7 +156,10 @@ def surface(tile,fn,nu,nv,reverse=False,uvfn=None):
     for v in ys:
         for u in xs:
             u1,v1=(u,1-v) if uvfn is None else uvfn(u,v)
-            t.append(((tile%4+.008+.984*u1)/4,(tile//4+.008+.984*v1)/4))
+            cell=5 if tile==16 else tile
+            if tile==16:v1=.878+.114*v1
+            elif tile==5:v1*=.86
+            t.append(((cell%4+.008+.984*u1)/4,(cell//4+.008+.984*v1)/4))
     for j in range(nv):
         for i in range(nu):
             q=first+j*(nu+1)+i;b=q+1;c=b+nu+1;d=q+nu+1
@@ -271,6 +299,8 @@ headlev=np.array([(1.476,.034,.043,.034),(1.492,.058,.062,.025),(1.516,.074,.074
 def sculpt(u,v):
     a=u*tau;y=headlev[0,0]+v*(headlev[-1,0]-headlev[0,0]);rx,rz,cz=[np.interp(y,headlev[:,0],headlev[:,k]) for k in [1,2,3]]
     x=rx*sin(a);front=max(0,cos(a))**2;z=cz+rz*cos(a)
+    # The philtrum and upper lip support the moustache as they pass into the cheeks.
+    z+=front*.018*math.exp(-(x/.04)**2-((y-1.565)/.019)**2)
     for side in [-1,1]:
         s=side
         for cx,cy,wx,wy,d in [(s*.049,1.63,.027,.014,-.013),(s*.055,1.607,.027,.020,.009),(s*.047,1.652,.036,.012,.013),(s*.044,1.565,.033,.024,-.006)]:
@@ -329,7 +359,15 @@ def beard(u,v):
     ridge=(.0039*cos(13*flow+1.4*v)+.0018*sin(23*flow-2*v))*(.45+.55*sin(pi*v))
     x=sin(flow)*(.043+.059*v+.019*sin(pi*v)+ridge)
     z=.035+cos(flow)*(.047+.044*v+.022*sin(pi*v)+ridge)
-    return [x,ylo+(yhi-ylo)*v,z]
+    y=ylo+(yhi-ylo)*v
+    # Bring the perimeter into the actual jaw surface. Sideburns follow the cheek
+    # rather than ending in the hard raised rim of a separate beard shell.
+    t=np.clip((v-.58)/.42,0,1)
+    blend=t*t*(3-2*t)
+    skin=np.array(sculpt(a/tau,(y-1.476)/.292))
+    sink=.0022*(v**7)
+    return [(1-blend)*x+blend*(skin[0]-sink*sin(a)),y,
+            (1-blend)*z+blend*(skin[2]-sink*cos(a))]
 surface(6,beard,56,23)
 for j in range(17):
     u=.06+.055*j
@@ -345,16 +383,43 @@ for j in range(17):
         return p+np.array([sin(ang),0,cos(ang)])*.0030*sin(pi*u1)*sin(pi*v)
     surface(6,ridge,5,13,uvfn=lambda u1,v:(u+(u1-.5)*.035,1-hi*v))
 g=3
+# Position the hairs on the same facial surface used to cut the head mesh.
+def cheek_point(x,y):
+    radius=np.interp(y,headlev[:,0],headlev[:,1])
+    a=math.asin(np.clip(x/radius,-1,1))
+    return np.array(sculpt(a/tau,(y-1.476)/.292))
+
 for s in [-1,1]:
-    moust=[(s*.002,1.568,.122),(s*.016,1.568,.122),(s*.030,1.561,.118),(s*.044,1.558,.108),(s*.053,1.564,.102)]
-    curved(13,moust,[.002,.0065,.006,.0036,.0008],10)
-    for j in range(4):
-        pp=[np.array(p)+[0,.0007*j,.0023+.0026*sin(pi*k/4)] for k,p in enumerate(moust)]
-        curved(6,pp,[.00035,.0009,.0010,.0008,.0002],5)
+    # A flattened sweep parts under the nose. Each lock begins at the skin and
+    # fans down and out to an uneven tip, revealing the upper lip at the centre.
+    def moustache(u,v):
+        x=.002+.052*u
+        top=1.571+.002*sin(pi*u)-.014*u**1.5
+        depth=.001+.016*sin(pi*u)**.60
+        p=cheek_point(s*(x+.006*v*sin(pi*u)),top-v*depth)
+        p[2]+=(.0007+.0048*sin(pi*v)**.7)*sin(pi*u)**.6
+        return p
+    surface(6,moustache,24,8,reverse=s==1)
+    for strand in range(12):
+        along=.025+.078*strand
+        def whisker(u,v):
+            drift=(.037+.07*sin(along*pi)) * v
+            width=(.043+.012*sin(strand*1.71))*(.3+.7*sin(pi*v)**.55)*(1-v**2)+.0008
+            w=np.clip(along+drift+(2*u-1)*width,0,.996)
+            h=.09+v*(.82+.19*sin(strand*1.67))
+            p=moustache(w,min(.997,h))
+            p[1]-=.0025*v**2
+            p[2]+=.0006+.0023*sin(pi*u)*sin(pi*v)**.65
+            return p
+        surface(6,whisker,4,8,reverse=s==1,
+                uvfn=lambda u,v,j=strand:(.06+j*.071+u*.012,.28+v*.31))
 g=4
 def soul_patch(u,v):
-    x=(u-.5)*(.029-.016*v); y=1.530+v*.009
-    return [x,y,.117+.0019*sin(pi*u)+.0013*sin(pi*v)-.0052*v]
+    x=(u-.5)*(.006+.020*v)
+    y=1.527+.011*v-.003*(1-sin(pi*u))*v
+    p=cheek_point(x,y)
+    p[2]+=.001+.010*v+.002*sin(pi*u)*sin(pi*v)
+    return p
 surface(6,soul_patch,10,6,uvfn=lambda u,v:(.40+u*.17,.12+(1-v)*.15))
 g=3
 curved(14,[(-.029,1.549,.105),(-.012,1.551,.113),(0,1.549,.117),(.01,1.551,.114),(.031,1.549,.105)],[.001,.0033,.0025,.0032,.0008])
@@ -462,9 +527,10 @@ for s in [-1,1]:
         bx,by,bz=.306,1.136,.268; ang=-.24
         def bp(x,y,z):
             return np.array([bx+x*cos(ang)-y*sin(ang),by+x*sin(ang)+y*cos(ang),bz+z])
-        curved(5,[sleeve_center(.89),wrist,bp(-.026,-.054,-.043),bp(-.012,-.065,-.041)],
-            [.029,.026,.024,.026],17)
-        ell(5,bp(-.012,-.065,-.041),[.048,.047,.021],24,13,angle=-.16)
+        curved(5,[sleeve_center(.89),wrist,bp(-.031,-.054,-.047),bp(-.014,-.068,-.044)],
+            [.029,.025,.022,.024],17)
+        ell(5,bp(-.014,-.067,-.043),[.045,.041,.022],26,16,angle=ang)
+        ell(5,bp(-.045,-.057,-.042),[.027,.027,.018],22,14,angle=ang-.52)
         cub(10,[bx,by,bz],[.152,.206,.023],ang)
         for zz in [-.015,.015]:cub(4,bp(0,0,zz),[.160,.216,.008],ang)
         # Rounded spine and gold tooling form a legible vertical edge in silhouette.
@@ -480,16 +546,67 @@ for s in [-1,1]:
         pipe(8,pp,.0024,7);disk(11,bp(0,0,.020),.01,.003)
         cub(4,bp(.065,.006,.021),[.030,.013,.005],ang)
         disk(8,bp(.055,.006,.025),.0035,.0018)
-        for k in range(4):
-            x=-.037+.016*k; tip=-.086-.005*k
-            local=[(x-.003,-.063,-.026),(x-.002,-.093,-.022),(x,-.110,-.014),
-                (x+.001,-.115,.002),(x+.001,-.108,.018),(x-.001,tip,.022)]
-            curved(5,[bp(*p) for p in local],[.0100,.0092,.0085,.0080,.0071,.0049],9)
-            ell(5,bp(x-.001,tip-.002,.0255),[.0035,.0044,.0014],10,6,angle=ang)
-        thumb=[(-.038,-.044,-.030),(-.071,-.041,-.023),(-.086,-.046,-.004),
-            (-.083,-.048,.014),(-.069,-.045,.025),(-.052,-.036,.026)]
-        curved(5,[bp(*p) for p in thumb],[.015,.014,.012,.012,.010,.0063],10)
-        ell(5,bp(-.054,-.037,.030),[.0044,.0054,.0014],12,7,angle=-.85)
+        def book_digit(centres,widths,pads,lateral):
+            # Keep the pad facing the board as it wraps an edge. Independent
+            # transverse widths and pad depths give the tips their flattened shape.
+            pts=np.array(centres); axis=np.gradient(pts,axis=0)
+            side=[]; normal=[]
+            for tangent in axis:
+                tangent=unit(tangent)
+                basis=unit(lateral-np.dot(tangent,lateral)*tangent)
+                side.append(basis);normal.append(np.cross(tangent,basis))
+            def section(u,v):
+                t=v*(len(pts)-1);i=min(int(t),len(pts)-2);f=t-i
+                def edge(k):
+                    return pts[k]+widths[k]*cos(tau*u)*side[k]+pads[k]*sin(tau*u)*normal[k]
+                return bp(*((1-f)*edge(i)+f*edge(i+1)))
+            surface(5,section,14,2*(len(pts)-1))
+
+        # The bottom of the covers is at -.108 and their outside faces are
+        # at ±.019. Wrap the pads around those two corners with a tangent arc.
+        for k,(knuckle,length,width) in enumerate([
+                (-.046,.028,.0092),(-.024,.031,.0098),(-.003,.021,.0092),(.016,.009,.0072)]):
+            depth=.0064-.00034*k
+            path=[(knuckle-.002,-.075-.002*k,-.039),(knuckle,-.094,-.030)]
+            for a in np.linspace(0,pi/2,5):
+                path.append((knuckle,-.108-depth*sin(a),-.019-depth*cos(a)))
+            for a in np.linspace(0,pi/2,5):
+                path.append((knuckle+.0007*k,-.108-depth*cos(a),.019+depth*sin(a)))
+            tip=knuckle+.002*(k-1)
+            path.extend([(tip,-.108+length*.52,.019+depth),
+                         (tip,-.108+length-.003,.019+depth*.77),
+                         (tip,-.108+length,.019+depth*.65)])
+            widths=[width*1.04,width]+[width*.93]*5+[width*.88]*5+[width*.85,width*.72,.0003]
+            pads=[.010,.008]+[depth]*10+[depth,depth*.77,.0003]
+            book_digit(path,widths,pads,np.array([1.,0,0]))
+            def fingernail(u,v):
+                h=length*(.28+.48*v)
+                lat=(2*u-1)*width*.54*(.20+.80*sin(pi*v)**.52)
+                x,_,zc=[np.interp(h,[p[1]+.108 for p in path[-4:]],
+                                  [p[i] for p in path[-4:]]) for i in range(3)]
+                thick=np.interp(h,[0,length*.52,length-.003,length],[depth,depth,depth*.77,.0003])
+                span=np.interp(h,[0,length*.52,length-.003,length],
+                               [width*.88,width*.85,width*.72,.0003])
+                z=zc+thick*math.sqrt(max(0,1-(lat/span)**2))+.00055
+                return bp(x+lat,-.108+h,z)
+            surface(16,fingernail,6,8)
+        # At the spine the leather reaches x=-.094. Wrap outside its widest
+        # section, then rotate the thumb pad onto the front above the fingers.
+        thumb=[(-.041,-.058,-.043),(-.060,-.052,-.039),(-.078,-.046,-.034),
+               (-.089,-.042,-.025),(-.099,-.040,-.014),(-.105,-.039,-.002),
+               (-.102,-.037,.010),(-.095,-.034,.020),(-.084,-.031,.027),
+               (-.073,-.027,.027),(-.064,-.024,.0255),(-.060,-.024,.024)]
+        book_digit(thumb,[.016,.015,.013,.012,.011,.010,.010,.010,.010,.010,.007,.0004],
+                   [.014,.013,.011,.010,.009,.009,.008,.008,.007,.008,.0065,.0004],np.array([0.,1,0]))
+        def thumbnail(u,v):
+            x=-.081+.017*v
+            lat=(1-2*u)*(.0056*sin(pi*v)**.52+.001)
+            y=np.interp(x,[-.084,-.073,-.064],[-.031,-.027,-.024])
+            thick=np.interp(x,[-.084,-.073,-.064],[.007,.008,.0065])
+            z=np.interp(x,[-.084,-.073,-.064],[.027,.027,.0255])
+            span=np.interp(x,[-.084,-.073,-.064],[.010,.010,.007])
+            return bp(x,y+lat,z+thick*math.sqrt(max(0,1-(lat/span)**2))+.0005)
+        surface(16,thumbnail,6,9)
 
 # Single portable GLB; disjoint material cells share the UV atlas and ORM texture.
 chunks=bytearray();views=[];acs=[];meshes=[];nodes=[]

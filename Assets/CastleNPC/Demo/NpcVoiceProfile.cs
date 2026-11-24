@@ -18,10 +18,10 @@ namespace MedievalCastle.Npc.Demo
                     warmth.lowpassResonanceQ = 1f;
                     break;
                 case "knight":
-                    source.pitch = 1.045f;
+                    source.pitch = .95f;
                     if (!source.TryGetComponent<AudioHighPassFilter>(out var clarity))
                         clarity = source.gameObject.AddComponent<AudioHighPassFilter>();
-                    clarity.cutoffFrequency = 150f;
+                    clarity.cutoffFrequency = 80f;
                     clarity.highpassResonanceQ = 1f;
                     break;
                 default:

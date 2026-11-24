@@ -127,6 +127,8 @@ sweep('iron',[[-.16,.951,.025,.016,.018],[-.144,1.008,.039,.016,.017],[-.13,1.06
 sweep('gold',[[-.202,.962,.022,.006],[-.181,.961,.024,.011],[-.155,.959,.027,.010],[-.123,.969,.029,.009],[-.105,.978,.031,.004]],10);
 pin('gold',-.125,1.079,.049,.020);
 // Armored shoulders, nested plates, bent articulated forearms and fingers.
+const {openHand, shieldHand} = require('./hands.cjs');
+const gripX = .355, gripZ = .129;
 for(const s of [-1,1]){
  use(s<0?left:right);const A=s<0?[-.228,1.35,-.004]:[.240,1.341,-.024],
  E=s<0?[-.324,1.136,.057]:[.310,1.117,.009],
@@ -151,10 +153,11 @@ for(const s of [-1,1]){
  for(const t of [.52,.74]){const p=add(A,mul(sub(E,A),t));sweep('oxhide',[[...p,.071,.07],[...add(p,mul(sub(E,A),.05)),.07,.069]],18);}
  egg('iron',...E,.069,.062,.071,22,12);
  const fore=sub(W,E),L=t=>add(E,mul(fore,t));
- sweep('leather',[[...L(.02),.059,.063],[...L(.26),.068,.065],[...L(.75),.050,.054],[...W,.042,.046]],22);
+ sweep('leather',[[...L(.02),.059,.063],[...L(.26),.063,.061],[...L(.75),.043,.046],[...W,.038,.040]],22);
  sweep('steel',[[...L(.09),.062,.066],[...L(.16),.072,.073],[...L(.28),.069,.071],[...L(.81),.048,.055],[...L(.95),.046,.05]],24);
  for(const t of [.14,.83])sweep('edge',[[...L(t),t<.3?.073:.049,t<.3?.074:.056],[...L(t+.025),t<.3?.073:.049,t<.3?.074:.055]],20);
- require('./hands.cjs').buildHand(s,W);
+ if (s < 0) openHand(W,E);
+ else shieldHand(W,[gripX,gripZ]);
 }
 // Convex shield with dished steel rim, embossed heraldic sun above the city arch.
 use(right);
@@ -173,11 +176,11 @@ grid('escutcheon',56,14,(u,v)=>shield(u,.0001+.9999*v,.945,.004),{closed:true});
 // buckle and turned rim also have depth for a player walking past the guard.
 const gripAt=x=>shieldZ(x,sy)-.025;
 for(const yy of [.951,1.080]){
- sweep('iron',[[.355,yy,gripAt(.355),.013,.013],[.355,yy,.151,.012,.012],
-   [.355,yy,.131,.011,.011]],12);
+ sweep('iron',[[gripX,yy,gripAt(gripX),.013,.013],[gripX,yy,.151,.012,.012],
+   [gripX,yy,gripZ+.002,.011,.011]],12);
 }
-sweep('oxhide',[[.355,.949,.129,.012,.012],[.355,.959,.129,.015,.015],
-  [.355,1.067,.129,.016,.016],[.355,1.081,.129,.012,.012]],15);
+sweep('oxhide',[[gripX,.949,gripZ,.012,.012],[gripX,.959,gripZ,.015,.015],
+  [gripX,1.067,gripZ,.016,.016],[gripX,1.081,gripZ,.012,.012]],15);
 grid('leather',18,4,(u,v)=>{const x=mix(.277,.418,u);
  return[x,1.105+(v-.5)*.026+.020*sin(u*Math.PI),gripAt(x)-.093*sin(u*Math.PI)];},{reverse:true});
 for(let i=0;i<so.length;i++){const [a,b]=so[i];const x=sx+a*.946,y=sy+b*.946;pin('gold',x,y,shieldZ(x,y)+.014,.0048);}

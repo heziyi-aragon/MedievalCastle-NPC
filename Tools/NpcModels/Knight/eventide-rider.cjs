@@ -35,11 +35,11 @@ const tiles = {
   Cream: ['#f4dfb1', 'cloth', 0, .78],
   Skin: ['#eac5b0', 'skin', 0, .68],
   Blush: ['#c68e7d', 'skin', 0, .72],
-  Lip: ['#ad6865', 'skin', 0, .55],
-  Iris: ['#42615b', 'shine', 0, .29],
-  IrisLight: ['#65877b', 'shine', 0, .32],
+  Lip: ['#bd8579', 'lips', 0, .61],
+  Cornea: ['#dfd6c7', 'eye', 0, .30],
+  Complexion: ['#eac5b0', 'face', 0, .67],
   Lash: ['#4c352f', 'hair', 0, .76],
-  Sclera: ['#e4dcd0', 'shine', 0, .46],
+  Brow: ['#96795d', 'hair', 0, .78],
   Glint: ['#fff8db', 'shine', 0, .18],
   Butter: ['#c9a273', 'hair', 0, .53],
   GoldHair: ['#a77e54', 'hair', 0, .63],
@@ -48,16 +48,46 @@ const tiles = {
   Gem: ['#508a9c', 'shine', .22, .25],
   Charcoal: ['#43464e', 'cloth', 0, .81],
   Honey: ['#b79366', 'hair', 0, .58],
+  Mouth: ['#633f40', 'skin', 0, .79],
 };
 const keys=Object.keys(tiles),TS=112,cols=8,rows=5,tw=cols*TS,th=rows*TS;
 if (keys.length > cols * rows) throw Error("Texture atlas has too few tiles.");
 function rand(i,j){let n=Math.imul(i+1,374761393)+Math.imul(j+1,668265263);n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967295;}
-function tex(t,u,v){const [hex,kind,metal,rough]=tiles[t],c=[1,3,5].map(x=>parseInt(hex.substring(x,x+2),16));let sh=1,shine=0,noise=rand(Math.floor(u*TS),Math.floor(v*TS))-.5;const a=TAU*u,b=TAU*v;
+function tex(t,u,v){const [hex,kind,metal,rough]=tiles[t];let c=[1,3,5].map(x=>parseInt(hex.substring(x,x+2),16)),sh=1,shine=0,noise=rand(Math.floor(u*TS),Math.floor(v*TS))-.5;const a=TAU*u,b=TAU*v;
  if(kind==='coat'){sh+=.035*sin(3*a+sin(b*4))+.027*sin(b*7+cos(2*a))+.022*noise;const dots=sin(3*a+.7*sin(3*b))*cos(4*b+.4*cos(2*a));sh-=.05*Math.max(0,dots)}
  else if(kind==='metal'){sh+=.018*sin(b*40+sin(a)*4)+.008*noise+.036*sin(a+.25*b);shine=.03*noise}
  else if(kind==='hair'||kind==='horn'){sh+=.045*sin(15*a+2*sin(b))+.028*sin(8*a+.9*sin(2*b))+.021*noise}
  else if(kind==='cloth'||kind==='brocade'){sh+=.018*sin(31*a)*cos(31*b)+.017*noise;if(kind==='brocade'){const x=u*4,y=v*4,rx=(x%1)-.5,ry=(y%1)-.5;const fern=Math.abs(Math.abs(rx)-.15*(1+cos(ry*TAU*1.5)));if(fern<.037)sh+=.10;const diamond=Math.abs(Math.abs(rx)+Math.abs(ry)-.43);if(diamond<.021)sh+=.08}}
  else if(kind==='hide'){sh+=.035*noise+.023*sin(8*a+2*cos(7*b))}
+ else if(kind==='face'){
+   const x=Math.abs((u-.5)*.28),y=2.425-v*.32;
+   const spot=(cx,cy,rx,ry)=>Math.exp(-(((x-cx)/rx)**2+((y-cy)/ry)**2));
+   const warm=.20*spot(.070,2.239,.034,.021)+.15*spot(.012,2.219,.020,.012);
+   const shade=.18*spot(.054,2.276,.033,.016)+.10*spot(.074,2.185,.025,.024);
+   c=mix(mix(c,[192,119,104],warm),[153,112,100],shade);
+   sh+=.013*noise;
+ }
+ else if(kind==='lips'){
+   const rim=clamp((v-.62)/.38),corner=clamp((Math.abs(2*u-1)-.86)/.14);
+   c=mix(c,[229,188,167],.80*Math.max(rim,corner));
+   sh+=.013*noise+.012*sin(17*a);
+ }
+ else if(kind==='eye'){
+   const x=(u-.5)*.054,y=(.5-v)*.036-.0015;
+   const r=Math.hypot(x,y),angle=Math.atan2(y,x);
+   c=mix(c,[187,145,134],.48*clamp((Math.abs(x)-.016)/.010));
+   const irisRadius=.0118;
+   if(r<irisRadius+.0004){
+     const radial=r/irisRadius,grain=.5+.5*sin(38*angle+3*sin(13*angle)+radial*9);
+     let iris=mix([66,99,78],[117,142,99],.32*grain+.29*clamp(-y/irisRadius));
+     iris=mix(iris,[137,117,70],.45*Math.exp(-((radial-.49)**2)/.018));
+     iris=mix(iris,[41,58,49],clamp((radial-.79)/.17)*.91);
+     iris=mix([36,41,37],iris,clamp((r-.0043)/.0007));
+     c=mix(iris,c,clamp((r-irisRadius+.0004)/.0008));
+   }
+   const highlight=Math.exp(-(((x+.0032)/.00175)**2+((y-.0032)/.00170)**2));
+   c=mix(c,[255,250,226],.85*highlight);
+ }
  else if(kind==='skin'){sh+=.013*noise+.013*cos(a)*cos(b)}
  else if(kind==='mail'){const x=(u*16+(Math.floor(v*19)%2)*.5)%1-.5,y=(v*19)%1-.5;sh+=.22*cos((Math.hypot(x,y*.8)-.26)*7)}
  return [c.map(q=>clamp(Math.round(q*sh),0,255)),[255,clamp(Math.round((rough+shine)*255),0,255),Math.round(metal*255)]];
@@ -70,12 +100,12 @@ let parts=[],cur=null;function make(n,org,basis,parent){const part={name:n,org:w
 function use(n){cur=parts.find(q=>q.name===n)}
 function uv(t,u,v){const i=keys.indexOf(t);if(i<0)throw Error(t);return [((i%cols)*TS+3.5+clamp(u)*(TS-7))/tw,(Math.floor(i/cols)*TS+3.5+clamp(v)*(TS-7))/th]}
 function face(t,p,n,st){const out=[];for(let j=0;j<3;j++){const pos=sub(world(p[j],cur.basis),cur.org),no=rot(n[j],frames[cur.basis]*PI/180),tc=uv(t,...st[j]);const tag=[...pos,...no,...tc].map(v=>Math.round(v*1e5)).join(',');let ix=cur.lookup.get(tag);if(ix===undefined){ix=cur.verts.length/3;cur.lookup.set(tag,ix);cur.verts.push(...pos);cur.norms.push(...no);cur.uv.push(...tc)}out.push(ix)}if(new Set(out).size===3){cur.inds.push(...out);cur.triMat.push(t)}}
-function patch(t,grid,orient,wrap=false,smooth=true){const h=grid.length,w=grid[0].length,ns=grid.map(row=>row.map(()=>[0,0,0])),faces=[];
+function patch(t,grid,orient,wrap=false,smooth=true,projectUV=null){const h=grid.length,w=grid[0].length,ns=grid.map(row=>row.map(()=>[0,0,0])),faces=[];
  for(let y=0;y<h-1;y++)for(let x=0;x<w-1;x++){for(let v of [[[y,x],[y,x+1],[y+1,x+1]],[[y,x],[y+1,x+1],[y+1,x]]]){
   let points=v.map(([i,j])=>grid[i][j]);let nn=cross(sub(points[1],points[0]),sub(points[2],points[0]));if(len(nn)<1e-10)continue;
   const want=typeof orient==='function'?orient(y,x,points[0]):orient;if(dot(nn,want)<0){v=[v[0],v[2],v[1]];nn=mul(nn,-1)}for(const [i,j] of v)ns[i][j]=add(ns[i][j],nn);faces.push([v,unit(nn)])}}
  if(wrap)for(let i=0;i<h;i++){const k=add(ns[i][0],ns[i][w-1]);ns[i][0]=k;ns[i][w-1]=k}
- for(const [v,flat] of faces){face(t,v.map(([i,j])=>grid[i][j]),v.map(([i,j])=>smooth?unit(ns[i][j]):flat),v.map(([i,j])=>[j/(w-1),i/(h-1)]))}
+ for(const [v,flat] of faces){face(t,v.map(([i,j])=>grid[i][j]),v.map(([i,j])=>smooth?unit(ns[i][j]):flat),v.map(([i,j])=>projectUV?projectUV(grid[i][j]):[j/(w-1),i/(h-1)]))}
 }
 function loft(t,sections,axis='y',N=22,warp=null){const rr=sections.map(([x,y,z,rx,rr],i)=>Array.from({length:N+1},(_,j)=>{const a=TAU*j/N;let p=axis==='y'?[x+rx*sin(a),y,z+rr*cos(a)]:[x+rx*sin(a),y+rr*cos(a),z];return warp?warp(p,a,i):p}));patch(t,rr,(i,j,p)=>{const mid=mix(sections[i].slice(0,3),sections[i+1].slice(0,3),.5);const d=sub(p,mid);d[axis==='y'?1:2]=0;return d},true);for(let s of [0,sections.length-1]){const center=sections[s].slice(0,3),d=[0,0,0];d[axis==='y'?1:2]=(s?1:-1)*Math.sign(sections.at(-1)[axis==='y'?1:2]-sections[0][axis==='y'?1:2]||1);for(let i=0;i<N;i++){let p=[center,rr[s][i],rr[s][i+1]];if(dot(cross(sub(p[1],p[0]),sub(p[2],p[0])),d)<0)p.reverse();face(t,p,[d,d,d],[[.5,.5],[.0,.0],[1,1]])}}}
 function ell(t,c,sz,N=16,H=9){
@@ -358,58 +388,158 @@ use('HorseNeck');for(const s of [-1,1]){
  use('HorseNeck');
 }
 use('Head');
-// Soft tapered face with a projected brow ridge, small integrated nose bridge and pronounced cheek planes.
-const faceLevels=[[-.005,2.117,-.059,.019,.033],[-.002,2.133,-.059,.048,.06],[0,2.156,-.065,.075,.079],[0,2.181,-.068,.092,.088],[0,2.209,-.073,.103,.102],[0,2.239,-.077,.115,.110],[0,2.269,-.077,.119,.115],[0,2.299,-.081,.119,.115],[0,2.337,-.086,.115,.110],[0,2.37,-.09,.101,.102],[0,2.395,-.089,.079,.084],[0,2.411,-.086,.051,.065],[0,2.421,-.082,.019,.032]];
-const smoothSections=smoothPath(faceLevels,2);
-function addNose(z,y,x,facing){
- const blend=clamp((facing-.10)/.36);
- const bump=(cx,cy,wx,wy)=>Math.exp(-(((Math.abs(x)-cx)/wx)**2+((y-cy)/wy)**2));
- const cheek=.0105*bump(.067,2.233,.031,.023),socket=-.010*bump(.051,2.265,.032,.021);
- const brow=.006*bump(.049,2.288,.036,.011),temple=-.004*bump(.096,2.28,.015,.031);
- const bridge=.019*bump(0,2.251,.010,.041),tip=.021*bump(0,2.222,.014,.012);
- const alae=.010*bump(.015,2.218,.009,.007),philtrum=.0028*bump(.006,2.200,.003,.008);
- const chin=.007*bump(0,2.156,.031,.013),mouth=.004*bump(0,2.183,.030,.014);
- return z+(cheek+socket+brow+temple+bridge+tip+alae+philtrum+chin+mouth)*blend*blend*(3-2*blend);
+// Portrait sections pass through the mandible, upper dental arch and zygomatic arches.
+// The narrower chin projects ahead of the throat. Above the temples the skull fits the existing hair cap.
+const faceLevels = [
+ [2.119,-.040,.020,.032], [2.127,-.042,.037,.057], [2.142,-.049,.062,.079],
+ [2.157,-.057,.082,.089], [2.178,-.067,.095,.095], [2.202,-.075,.101,.105],
+ [2.226,-.080,.110,.114], [2.248,-.082,.119,.117], [2.271,-.083,.118,.117],
+ [2.298,-.081,.117,.117], [2.337,-.086,.115,.110], [2.370,-.090,.101,.102],
+ [2.395,-.089,.079,.084], [2.411,-.086,.051,.065], [2.421,-.082,.019,.032]
+];
+const sections=smoothPath(faceLevels.map(([y,z,rx,rz])=>[0,y,z,rx,rz]),4);
+function relief(x,y) {
+ const spot=(cx,cy,wx,wy)=>Math.exp(-(((Math.abs(x)-cx)/wx)**2+((y-cy)/wy)**2));
+ const orbit= .007*spot(.048,2.287,.044,.015)-.006*spot(.050,2.264,.040,.023)
+              +.003*spot(.049,2.250,.040,.014);
+ const cheek= .006*spot(.062,2.234,.049,.033)-.003*spot(.077,2.198,.040,.038);
+ const nose= .026*spot(0,2.244,.014,.036)+.023*spot(0,2.220,.015,.013)
+            +.009*spot(.017,2.218,.008,.007)-.004*spot(0,2.279,.015,.012);
+ const base= -.004*spot(.006,2.208,.014,.006)+.0014*spot(.006,2.200,.005,.010);
+ const muzzle=.006*spot(0,2.184,.055,.029)+.0048*spot(0,2.186,.037,.013)
+             +.0025*spot(.029,2.180,.020,.015)-.003*spot(0,2.202,.022,.008)
+             -.0018*spot(0,2.166,.033,.009);
+ const chin= .009*spot(0,2.146,.042,.017);
+ return orbit+cheek+nose+base+muzzle+chin;
 }
-function frontAt(x,y){let i=1;while(i<smoothSections.length-1&&smoothSections[i][1]<y)i++;const l=smoothSections[i-1],h=smoothSections[i],t=clamp((y-l[1])/(h[1]-l[1]));const r=l[3]+t*(h[3]-l[3]),z=l[2]+t*(h[2]-l[2]),rz=l[4]+t*(h[4]-l[4]);const facing=Math.sqrt(clamp(1-((x-l[0])/r)**2));return addNose(z+rz*facing,y,x,facing)}
-loft('Skin',smoothSections,'y',72,(p,a)=>{
- // Keep the cranial vault inside the hair cap at the occiput and temples.
- const underHair=clamp((p[1]-2.265)/.080)*clamp((.86-cos(a))/.78);
- return[p[0]*(1-.13*underHair),p[1],addNose(p[2]+(-.084-p[2])*.24*underHair,p[1],p[0],cos(a))];
-});
-for(const s of [-1,1]){ell('Skin',[s*.113,2.238,-.080],[.024,.038,.018],16,10);ell('Blush',[s*.12,2.238,-.065],[.012,.024,.007],14,8);ell('Gold',[s*.117,2.205,-.063],[.006,.007,.005],10);
- const ex=s*.050,y0=2.263;
- function ep(u,v,depth){const x=ex+u*.0317,base=y0+s*u*.0028,arch=Math.max(0,1-u*u)**.74;
- const y=base+v*(v>=0?.0128:.0087)*arch*(1-.12*u*s);
- return [x,y,frontAt(x,y)+.0020+depth+.0030*arch*(1-v*v)]}
- const grid=Array.from({length:10},(_,i)=>Array.from({length:22},(_,j)=>ep(-1+2*j/21,-1+2*i/9,0)));panel('Sclera',grid);
- const irisCenter=ex-.001;const ellEye=(name,rx,ry,zl,cy)=>{const pg=Array.from({length:10},(_,i)=>Array.from({length:23},(_,j)=>{const th=TAU*j/22,r=i/9,x=irisCenter+rx*r*cos(th),y=cy+ry*r*sin(th);return [x,y,frontAt(x,y)+zl+.001*(1-r*r)]}));panel(name,pg)};
- ellEye('EyeDark',.0117,.0104,.0059,y0+.0017);ellEye('Iris',.0102,.0092,.0068,y0+.0016);ellEye('IrisLight',.0073,.0049,.0076,y0-.002);ellEye('EyeDark',.0056,.0064,.0087,y0+.0019);
- ell('Glint',[irisCenter-.003,y0+.005,frontAt(irisCenter-.003,y0+.005)+.0106],[.0023,.002,.0008],10,6);
- for(const dir of [1,-1]){
-  const lid=Array.from({length:4},(_,j)=>Array.from({length:23},(_,k)=>{
-   const u=k/11-1,v=j/3,p=ep(u,dir,0),arch=Math.max(0,1-u*u);
-   p[1]+=dir*(dir===1?.0092:.0050)*v*arch;
-   p[2]=frontAt(p[0],p[1])+.0013+.0032*(1-v)*arch+.0025*sin(v*PI)*arch;
-   return p;
-  }));
-  panel('Skin',lid);
-  if(dir===1){const rim=lid[0].map(p=>add(p,[0,0,.00075]));
-   sweep('Lash',rim,rim.map((_,i)=>.00032+.00105*sin(i/(rim.length-1)*PI)),7);
-   taperedLine('Blush',lid.at(-1).filter((_,i)=>i>2&&i<20),.00062);}
+function sculptSurface(x,y,z,facing) {
+ const inset=clamp((facing-.10)/.36);
+ return z+relief(x,y)*inset*inset*(3-2*inset);
+}
+function frontAt(x,y) {
+ let i=1;
+ while(i<sections.length-1 && sections[i][1]<y) i++;
+ const lo=sections[i-1],hi=sections[i],t=clamp((y-lo[1])/(hi[1]-lo[1]));
+ const rx=lo[3]+t*(hi[3]-lo[3]),rz=lo[4]+t*(hi[4]-lo[4]);
+ const facing=Math.sqrt(clamp(1-(x/rx)**2));
+ return sculptSurface(x,y,lo[2]+t*(hi[2]-lo[2])+rz*facing,facing);
+}
+const sculpt=sections.map(([cx,y,cz,rx,rz])=>Array.from({length:81},(_,i)=>{
+ const a=TAU*i/80,forward=cos(a),underHair=clamp((y-2.265)/.080)*clamp((.86-forward)/.78);
+ const x=rx*sin(a),z=cz+rz*forward;
+ return [x*(1-.13*underHair),y,sculptSurface(x,y,z+(-.084-z)*.24*underHair,forward)];
+}));
+const faceUV=p=>[.5+p[0]/.28,(2.425-p[1])/.32];
+patch('Complexion',sculpt,(i,j,p)=>[p[0],0,p[2]-sections[i][2]],true,true,faceUV);
+for(const ring of [sculpt[0],sculpt.at(-1)]){
+ const c=ring.slice(0,-1).reduce((sum,p)=>add(sum,mul(p,1/(ring.length-1))),[0,0,0]);
+ const normal=[0,ring===sculpt[0]?-1:1,0];
+ for(let i=0;i<ring.length-1;i++){
+   const pts=[c,ring[i],ring[i+1]];
+   if(dot(cross(sub(pts[1],pts[0]),sub(pts[2],pts[0])),normal)<0)pts.reverse();
+   face('Skin',pts,[normal,normal,normal],[[.5,.5],[.2,.8],[.8,.8]]);
  }
- const brow=Array.from({length:16},(_,i)=>{const u=i/15,x=s*(.024+.060*u),y=2.289+.0078*sin(u*PI*.94)-.003*u;return [x,y,frontAt(x,y)+.002]});
- sweep('GoldHair',brow,brow.map((_,i)=>[.0014+.0016*sin(i/15*PI),.0015]),8,[0,1,0]);
- for(let k=1;k<13;k+=2){const p=brow[k];taperedLine('Butter',[add(p,[-s*.001,-.0008,.001]),add(p,[s*.002,.0019,.0015])],.00045)}
 }
-for(const s of [-1,1]){const x=s*.0125,y=2.215;const nare=[-1,-.5,0,.5,1].map(u=>{const xx=x+s*u*.0048,yy=y+.00125*sin(u*PI/2)+.0009*(1-u*u);return [xx,yy,frontAt(xx,yy)+.00135]});taperedLine('Lip',nare,.00095)}
-use('Jaw');const lips=[];for(let row=0;row<5;row++){
- lips.push(Array.from({length:23},(_,i)=>{
-  const u=i/11-1,x=u*.030,arch=1-u*u,base=2.185+.0026*u*u+.0005*u;
-  const top=(.0046+.0019*Math.exp(-(((Math.abs(u)-.28)/.18)**2)))*(1-.30*Math.exp(-((u/.17)**2)));
-  const y=base+[-.0056,-.0031,0,.0027,top][row]*arch;
-  return [x,y,frontAt(x,y)+.0011+[0,.0025,.00025,.0019,0][row]*arch];}));
-}panel('Lip',lips);taperedLine('Lash',lips[2].slice(1,-1).map(p=>add(p,[0,.0001,.00075])),.00058);
+for(const s of [-1,1]){
+ ell('Skin',[s*.113,2.238,-.080],[.024,.038,.018],16,10);
+ ell('Blush',[s*.120,2.238,-.065],[.012,.024,.007],14,8);
+ ell('Gold',[s*.117,2.205,-.063],[.006,.007,.005],10);
+
+ // Only the exposed cornea passes through the lid aperture. Iris and pupil share its
+ // curved UV surface, so the upper lid always covers the iris, even in strict profile.
+ const ex=s*.048,ey=2.263,half=.025;
+ function aperture(u,d) {
+   const arch=Math.max(0,1-u*u)**.85;
+   return ey+.0023*u*s+d*arch*(d>0?.0080:.0062);
+ }
+ function globe(x,y) {
+   const u=(x-ex)/half,v=(y-ey)/half;
+   // The chord follows the slope of the bony socket, the corneal dome rises from it.
+   // Both canthi taper to the facial contour; the thickest part sits over the iris.
+   const inner=frontAt(ex-half,ey-.0023*s),outer=frontAt(ex+half,ey+.0023*s);
+   const chord=inner+(outer-inner)*(u+1)/2;
+   const dome=chord+.0040*(1-u*u)-.007*v*v;
+   return Math.max(frontAt(x,y)+.0004, dome+.00035);
+ }
+ const cornea=Array.from({length:9},(_,i)=>Array.from({length:31},(_,j)=>{
+   const u=j/15-1,x=ex+u*half,y=aperture(u,-1)+(i/8)*(aperture(u,1)-aperture(u,-1));
+   return [x,y,globe(x,y)];
+ }));
+ patch('Cornea',cornea,[0,0,1],false,true,p=>[.5+(p[0]-ex)/.054,.5-(p[1]-ey)/.036]);
+
+ for(const d of [1,-1]){
+   const lid=Array.from({length:8},(_,row)=>Array.from({length:31},(_,j)=>{
+     const t=row/7,u=j/15-1,startX=ex+half*u,x=startX+.005*u*t,arch=Math.max(0,1-u*u)**.65;
+     const y0=aperture(u,d),y=y0+d*t*(d>0?.017:.014)*(.34+.66*arch);
+     const inner=globe(startX,y0)+.0005;
+     const z=frontAt(x,y)-.00045*t+(inner-frontAt(startX,y0))*(1-t)**2*(1+2*t)
+            +(d>0?.0006:.00015)*Math.sin(PI*t)**2*arch;
+     return [x,y,z];
+   }));
+   patch('Complexion',lid,[0,0,1],false,true,faceUV);
+   if(d>0){
+     const rim=lid[0].map(p=>add(p,[0,0,.00028]));
+     sweep('Lash',rim,rim.map((_,i)=>.00015+.00085*sin(i*PI/30)),6);
+     const crease=lid[3].slice(4,-3).map(p=>add(p,[0,0,.00025]));
+     taperedLine('Blush',crease,.00045);
+   }
+ }
+ // Broad medial brow and tapered tail sit below the old high arch, with a slight
+ // difference in height between left and right to soften the neutral expression.
+ const brow=Array.from({length:4},(_,i)=>Array.from({length:25},(_,j)=>{
+   const u=j/24,x=s*(.021+.061*u);
+   const top=2.283+.0068*sin(PI*u*.88)-.0015*u+(s>0?.0008:0);
+   const thickness=.0005+.006*(1-u)**.63*Math.min(1,.42+u*9);
+   const y=top-thickness*.45+thickness*(i/3);
+   return [x,y,frontAt(x,y)+.0009+.0011*sin(PI*i/3)];
+ }));
+ panel('Brow',brow);
+ for(let j=2;j<=18;j+=3){
+   const p=brow[1][j]; taperedLine('Honey',[p,add(p,[s*.0022,.0020,.0005])],.00036);
+ }
+ // A shallow reddish underside is set into each nasal wing, facing the camera below.
+ const nare=Array.from({length:4},(_,i)=>Array.from({length:17},(_,j)=>{
+   const a=TAU*j/16,r=i/3,x=s*(.014+.005*r*cos(a));
+   const y=2.2142+.0017*r*sin(a)+.0012*r*cos(a);
+   return [x,y,frontAt(x,y)+.00065];
+ }));
+ panel('InnerEar',nare);
+}
+// Vermilion and the skin below it fold over a recessed oral opening. The upper lip
+// stays on the cranium; lower lip and labiomental fold travel together on Jaw.
+const mouthHalf=.034;
+const mouthSeam=u=>2.1854+.0007*u-.0011*u*u+.0006*Math.cos(u*PI*2);
+function lipPoint(u,row,lower) {
+ const x=mouthHalf*u,shape=Math.max(0,1-u*u),seam=mouthSeam(u);
+ const cupid=.0044+.0031*Math.exp(-(((Math.abs(u)-.30)/.19)**2));
+ const dy=lower?[-.0002,-.0026,-.0054,-.0081]:[.0002,.0021,.0041,cupid];
+ const bulge=lower?[.0015,.0032,.0028,.0007]:[.0016,.0034,.0026,.0007];
+ const y=seam+dy[row]*shape;
+ return [x,y,frontAt(x,y)+bulge[row]*shape+.00065-.0010*Math.abs(u)**7];
+}
+const lipGrid=lower=>Array.from({length:4},(_,row)=>
+ Array.from({length:33},(_,i)=>lipPoint(i/16-1,row,lower)));
+// The dark recess is fixed to the upper dental arch and only becomes exposed as
+// the jaw descends. At rest the lower lip and the sublabial skin cover the opening.
+const opening=Array.from({length:6},(_,j)=>Array.from({length:33},(_,i)=>{
+ const u=i/16-1,x=u*mouthHalf*.94,shape=Math.max(0,1-u*u);
+ const y=mouthSeam(x/mouthHalf)-.010*shape*j/5;
+ return [x,y,frontAt(x,y)+.00055];
+}));
+panel('Mouth',opening);
+const teeth=Array.from({length:3},(_,row)=>Array.from({length:25},(_,i)=>{
+ const u=i/12-1,x=.024*u,y=mouthSeam(x/mouthHalf)-.0009-row*.00085*(1-u*u);
+ return [x,y,frontAt(x,y)+.00080];
+}));
+panel('Ivory',teeth);
+const upperLip=lipGrid(false); panel('Lip',upperLip);
+use('Jaw');
+const lowerLip=lipGrid(true); panel('Lip',lowerLip);
+const fold=Array.from({length:5},(_,j)=>lowerLip.at(-1).map((p,i)=>{
+ const t=j/4,u=i/16-1,y=p[1]-.014*(1-u*u)*t;
+ return [p[0],y,frontAt(p[0],y)+.0007*(1-t)*(1-u*u)+.00045-.0011*Math.abs(u)**7-.0015*t];
+}));
+patch('Complexion',fold,[0,0,1],false,true,faceUV);
 use('Head');
 // Crown/hairline is continuous over the skull. Tapered laminar locks follow the skull instead of standing above it.
 const hair=Array.from({length:15},(_,i)=>Array.from({length:49},(_,j)=>{

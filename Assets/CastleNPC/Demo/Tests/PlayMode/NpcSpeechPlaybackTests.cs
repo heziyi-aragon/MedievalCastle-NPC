@@ -13,14 +13,14 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
     public sealed class NpcSpeechPlaybackTests : CastleWalkFixture
     {
         [UnityTest]
-        public IEnumerator AllThreeRecordedWelcomesPlayFromTheCharactersMouths()
+        public IEnumerator ShippedWelcomesPlayFromTheCharactersMouths()
         {
-            var ids = new[] { "guard", "merchant", "knight" };
-            var expectedPitches = new[] { .94f, .90f, 1.045f };
+            var ids = new[] { "guard", "merchant", "knight", "knight" };
+            var expectedPitches = new[] { .94f, .90f, .95f, .95f };
             Panel.SetSpeechProviderForTesting(null);
             for (int i = 0; i < ids.Length; i++)
             {
-                bool zh = i == 0;
+                bool zh = i == 0 || i == 3;
                 var resource = Resources.Load<AudioClip>("CastleNpcGreetings/" + ids[i] + (zh ? "-zh" : "-en"));
                 // Verify the recording exists before entering the production cache path.
                 Assert.That(resource, Is.Not.Null);
@@ -38,7 +38,7 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
                 if (ids[i] == "merchant")
                     Assert.That(source.GetComponent<AudioLowPassFilter>().cutoffFrequency, Is.EqualTo(6000f).Within(1f));
                 if (ids[i] == "knight")
-                    Assert.That(source.GetComponent<AudioHighPassFilter>().cutoffFrequency, Is.EqualTo(150f).Within(1f));
+                    Assert.That(source.GetComponent<AudioHighPassFilter>().cutoffFrequency, Is.EqualTo(80f).Within(1f));
                 Assert.That(source.spatialBlend, Is.EqualTo(1));
                 Vector3 rest = jaw.localPosition;
                 Assert.That(Panel.SpokenLine, Is.Empty, ids[i] + " recording starts with a quiet lead-in.");
@@ -46,6 +46,8 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
                 yield return Observe(.95f, () => travel = Mathf.Max(travel, Vector3.Distance(rest, jaw.localPosition)));
                 Assert.That(travel, Is.GreaterThan(.00019f), ids[i] + " recorded voice opens jaw");
                 Assert.That(Panel.SpokenLine, Is.Not.Empty);
+                if (ids[i] == "knight")
+                    Assert.That(Panel.SpokenLine, Is.EqualTo(zh ? "抬头，新兵。准备好操练了吗？" : "Eyes front, recruit. Ready for the drill?"));
                 Panel.EndTalk();
                 Assert.That(jaw.localPosition, Is.EqualTo(rest));
                 Assert.That(source.clip, Is.Null);

@@ -51,7 +51,7 @@ namespace MedievalCastle.Npc
                     }
                     if (!ContainsAny(text, "train", "drill", "progress", "review", "quest", "reward", "任务", "训练", "操练", "进度", "奖励", "复核", "检查", "练习"))
                     {
-                        answer.reply = zh ? "欢迎来到庭院，旅人。你想参加操练吗？" : "Welcome to the courtyard. Have you come to train?";
+                        answer.reply = zh ? "准备好操练了吗？" : "Ready for the drill?";
                         break;
                     }
                     if (state.trainingStatus == "available")
@@ -65,8 +65,10 @@ namespace MedievalCastle.Npc
                     {
                         answer.action = "review_training";
                         answer.questId = state.questId;
-                        answer.reply = zh ? $"已记录 {state.trainingProgress}/{state.trainingTarget} 处标记，让我复核你的进度。"
-                            : $"Your record shows {state.trainingProgress}/{state.trainingTarget} markers. Let me review your progress.";
+                        bool complete = state.trainingProgress >= state.trainingTarget;
+                        answer.reply = zh
+                            ? $"已检查 {state.trainingProgress}/{state.trainingTarget} 处标记。" + (complete ? "到我这里报告。" : "继续检查下一处。")
+                            : $"You checked {state.trainingProgress} of {state.trainingTarget} markers. " + (complete ? "Report to me." : "Move to the next marker.");
                     }
                     else answer.reply = zh ? "这一轮操练已经领过奖励了。" : "The reward for this drill has already been claimed.";
                     break;
