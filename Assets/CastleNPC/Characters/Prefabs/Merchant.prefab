@@ -55,6 +55,7 @@ MonoBehaviour:
   horseChest: {fileID: 0}
   earL: {fileID: 0}
   earR: {fileID: 0}
+  horseTail: {fileID: 0}
 --- !u!136 &6704434157470894817
 CapsuleCollider:
   m_ObjectHideFlags: 0

@@ -5,8 +5,10 @@ const {tau,sin,cos,clamp,add,sub,mul,norm,mix,legs,chest,head,jaw,left,right,use
 use(legs);
 // A grounded stance: the shield-side hip bears the weight; the free foot is further forward.
 for(const s of [-1,1]){
- const x=s<0?-.155:.10, z=s<0?.09:-.044, knee=x*.92, boot=x*1.06;
- loft('cloak',[[x*.82,.40,z,.059,.062],[knee,.52,z+.015,.074,.081],[x*.83,.641,z+.006,.092,.091],[x*.70,.805,z*.50,.097,.103],[x*.48,.90,z*.30,.100,.105]],24);
+ const x=s<0?-.187:.142, z=s<0?.142:-.083, knee=x*(s<0?.86:.98), boot=x*1.06;
+ loft('cloak',[[x*.82,.40,z,.059,.062],[knee,.52,z+.015,.074,.081],
+  [x*.83,.641,z*.83,.085,.082],[x*.65,.732,z*.39,.082,.077],
+  [x*.51,.805,z*.22,.083,.080],[x*.38,.90,z*.08,.087,.085]],24);
  loft('leather',[[boot,.036,z+.029,.077,.106],[boot,.074,z+.038,.078,.122],[boot,.111,z+.014,.066,.084],[x,.155,z-.004,.058,.066],[x,.244,z-.014,.069,.066],[knee,.343,z-.012,.074,.074],[knee,.423,z,.063,.069]],24);
  loft('oxhide',[[boot,.000,z+.069,.075,.149],[boot,.013,z+.067,.081,.155],[boot,.027,z+.069,.079,.151],[boot,.037,z+.067,.078,.143]],26);
  loft('leather',[[boot,.026,z+.069,.077,.144],[boot,.052,z+.071,.077,.139],[boot,.073,z+.061,.071,.128],[boot,.094,z+.047,.06,.097],[boot,.105,z+.023,.045,.064]],26);
@@ -29,10 +31,10 @@ loft('cloak',[[0,.72,-.004,.175,.121],[0,.83,-.005,.170,.128],[0,1.02,-.005,.155
 for(let layer=0;layer<2;layer++){
  const count=layer?17:18;
  for(let i=0;i<count;i++){const a=tau*i/count+(layer?.11:0),width=(layer?.42:.46)*tau/count;
-  const stop=.67+(layer?.07:0)+.035*cos(a+.2)+.016*cos(a*3),top=layer?.949:.918;
+  const stop=.647+(layer?.068:0)+.037*cos(a+.2)+.016*cos(a*3)-.031*sin(a),top=layer?.949:.918;
   const patchAt=(u,v,raise=0)=>{const uu=(u*2-1),a1=a+uu*width*(.90+.10*v)+.055*(1-v);const y=mix(stop+.029*Math.pow(Math.abs(uu),2.2),top,v);
-   const R=(layer?.195:.188)+.016*(1-v),Z=(layer?.143:.135)+.043*(1-v);
-   return [R*sin(a1)+raise*sin(a1),y,-.002+Z*cos(a1)+raise*cos(a1)];};
+   const R=(layer?.197:.188)+.061*(1-v),Z=(layer?.148:.137)+.080*(1-v);
+   return [R*sin(a1)+raise*sin(a1),y,-.002+.014*(1-v)+Z*cos(a1)+raise*cos(a1)];};
   grid(layer?'leather':'oxhide',5,4,patchAt);
   for(const v of [0,.92])path(layer?'welt':'leather',Array.from({length:7},(_,j)=>patchAt(j/6,v,.0008)),.00215,5);
   if(layer){const p=patchAt(.5,.84,.0014);egg('gold',...p,.0042,.0042,.0042,8,5);}
@@ -40,10 +42,10 @@ for(let layer=0;layer<2;layer++){
 }
 // Torso armor, cast musculature and silhouette derived from one continuous, shaped shell.
 const torso=[
- [0,.948,-.008,.145,.108],[0,.984,-.008,.161,.121],[0,1.028,-.010,.16,.129],
- [.003,1.086,-.012,.166,.135],[.004,1.148,-.013,.183,.144],[.004,1.213,-.015,.204,.151],
- [.005,1.259,-.017,.222,.157],[.005,1.309,-.018,.235,.154],[.004,1.354,-.017,.228,.145],
- [.002,1.388,-.015,.196,.124],[0,1.418,-.013,.149,.104],[0,1.431,-.012,.098,.084]];
+ [0,.948,-.008,.145,.108],[0,.984,-.008,.157,.119],[0,1.028,-.010,.154,.123],
+ [.003,1.086,-.012,.160,.133],[.004,1.148,-.013,.184,.148],[.008,1.213,-.015,.220,.169],
+ [.011,1.259,-.017,.247,.178],[.012,1.309,-.018,.256,.173],[.008,1.354,-.017,.246,.157],
+ [.003,1.388,-.015,.207,.131],[0,1.418,-.013,.149,.104],[0,1.431,-.012,.098,.084]];
 const gauss=(x,w)=>Math.exp(-(x*x)/(w*w));
 function torsoAt(u,v){const h=v*(torso.length-1),i=Math.min(torso.length-2,Math.floor(h)),f=h-i;
  const [cx,cy,cz,rx,rz]=torso[i].map((a,k)=>mix(a,torso[i+1][k],f)),a=u*tau,x=rx*sin(a),fr=Math.max(0,cos(a));
@@ -75,11 +77,12 @@ path('gold',[[-.029,.964,.144],[.007,.962,.147],[.039,.958,.144]],.0033);
 for(let i=0;i<3;i++)pin('gold',.077+i*.027,.966+i*.003,.121-i*.013,.0044);
 // Pleated heavy cloak, front lapels over the shoulders and two embossed gold medallions.
 const cloakAt=(u,v,inset=0)=>{const a=mix(.925,2*Math.PI-.925,u);
- const w=.56+.49*sin(v*Math.PI*.85),x=(.198+.16*(1-v)**1.6)*sin(a)*w/.90;
- const folds=(.014*cos(11*a+.95*v)+.007*cos(23*a-1.7*v))*(.12+.88*(1-v));
- const z=(-.074-(.12*(1-v))+.106*cos(a))+(folds+inset)*cos(a);
- const y=.40+.98*v+((.042*cos(7*a+.3)+.037*sin(a*2))*(1-v)**3)+.032*cos(a)*v;
- return[x+(.028*(1-v)),y,z];};
+ const flare=1-v,w=.61+.47*sin(v*Math.PI*.85);
+ const x=(.215+.19*flare**1.6)*sin(a)*w/.90;
+ const folds=(.024*cos(7*a+1.15*v)+.007*cos(16*a-1.7*v))*(.12+.88*flare);
+ const z=(-.075-.156*flare+.107*cos(a))+(folds+inset)*cos(a);
+ const y=.36+1.02*v+(.032*cos(7*a+.3)-.088*sin(a)+.024*sin(a*2))*flare**2+.032*cos(a)*v;
+ return[x+.056*flare**1.7,y,z];};
 grid('cloak',42,16,(u,v)=>cloakAt(u,v));grid('fold',42,16,(u,v)=>cloakAt(u,v,-.003),{reverse:true});
 for(const u of [0,1])path('fold',Array.from({length:31},(_,i)=>cloakAt(u,i/30)),.005,8);
 for(const s of [-1,1]){
@@ -125,19 +128,26 @@ sweep('gold',[[-.202,.962,.022,.006],[-.181,.961,.024,.011],[-.155,.959,.027,.01
 pin('gold',-.125,1.079,.049,.020);
 // Armored shoulders, nested plates, bent articulated forearms and fingers.
 for(const s of [-1,1]){
- use(s<0?left:right);const A=s<0?[-.215,1.345,-.009]:[.214,1.337,-.013],
- E=s<0?[-.303,1.134,.038]:[.286,1.114,.014],
+ use(s<0?left:right);const A=s<0?[-.228,1.35,-.004]:[.240,1.341,-.024],
+ E=s<0?[-.324,1.136,.057]:[.310,1.117,.009],
  W=s<0?[-.207,1.202,.190]:[.323,1.031,.077];
  sweep('fold',[[...A,.078,.085],[...add(A,mul(sub(E,A),.36)),.076,.080],[...E,.063,.067]],22);
- for(let j=0;j<3;j++){const xx=A[0]+s*(.014+.013*j),yy=A[1]-.026*j;
- loft(j===2?'iron':'steel',[[xx,yy-.032,-.008,.098-j*.008,.087-j*.007],[xx,yy-.021,-.008,.103-j*.008,.09-j*.006],[xx-s*.008,yy+.018,-.012,.085-j*.008,.075],[xx-s*.014,yy+.046,-.011,.05,.055]],26,
-  (p,t)=>[p[0],p[1]-.021*s*sin(t),p[2]]);
+ // Each overlapping lame follows the upper arm instead of forming a stack of rings.
+ for(let j=2;j>=0;j--){
+  const cap=(u,v)=>{const a=mix(-1.76,1.80,u),bulge=sin(Math.PI*v);
+   const x=.022+j*.014+(.112-j*.009+.008*bulge-.021*v)*cos(a);
+   const y=-.025-j*.031+.052*v-.025*cos(a)+.017*sin(a)**2-.009*(1-v)*cos(2*a);
+   return[A[0]+s*x,A[1]+y,A[2]+(.116-j*.006+.006*bulge)*sin(a)];};
+  grid(j===1?'iron':'steel',24,5,cap,{reverse:s>0});
+  path(j===1?'iron':'edge',Array.from({length:22},(_,i)=>cap(i/21,0)),.0034,7);
+  for(const u of [.20,.79]){const p=cap(u,.47);pin('gold',...p,.0045);}
  }
- // Outer pauldron covers lower articulated lames rather than intersecting the torso.
- const xx=A[0]+s*.014;loft('steel',[[xx,1.325,-.012,.106,.100],[xx,1.337,-.011,.112,.101],[xx,1.365,-.012,.108,.098],[xx-s*.014,1.397,-.014,.084,.079],[xx-s*.029,1.413,-.017,.045,.045]],32,
-  (p,t)=>[p[0],p[1]-.036*s*sin(t),p[2]]);
- const rim=[];for(let j=0;j<=34;j++){const a=tau*j/34;rim.push([xx+.106*sin(a),1.327-.036*s*sin(a),-.012+.1*cos(a)]);}path('edge',rim,.0032,7);
- pin('gold',xx+s*.015,1.333,.086,.006);
+ const xx=A[0]+s*.012;
+ loft('steel',[[xx,1.329,-.016,.120,.112],[xx,1.344,-.016,.126,.118],
+  [xx-s*.007,1.374,-.018,.117,.106],[xx-s*.020,1.410,-.023,.088,.081],
+  [xx-s*.041,1.429,-.029,.051,.052],[xx-s*.060,1.432,-.031,.024,.031]],32,
+  (p,t)=>[p[0],p[1]-.033*s*sin(t)+.006*cos(2*t),p[2]]);
+ const rim=[];for(let j=0;j<=34;j++){const a=tau*j/34;rim.push([xx+.120*sin(a),1.33-.033*s*sin(a)+.006*cos(2*a),-.016+.112*cos(a)]);}path('edge',rim,.0032,7);
  for(const t of [.52,.74]){const p=add(A,mul(sub(E,A),t));sweep('oxhide',[[...p,.071,.07],[...add(p,mul(sub(E,A),.05)),.07,.069]],18);}
  egg('iron',...E,.069,.062,.071,22,12);
  const fore=sub(W,E),L=t=>add(E,mul(fore,t));

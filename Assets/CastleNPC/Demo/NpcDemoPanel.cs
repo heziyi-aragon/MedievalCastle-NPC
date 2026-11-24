@@ -55,6 +55,7 @@ namespace MedievalCastle.Npc.Demo
                 int index = Array.IndexOf(NpcDemoScenario.Roles, actor.RoleId);
                 if (index < 0) continue;
                 actors[index] = actor;
+                if (actor.RoleId == "knight") actor.SetTrainingFocus(trainingTarget);
                 shapes[index] = actor.GetComponentsInChildren<Collider>(true);
             }
             font = CreateDisplayFont();
@@ -73,7 +74,7 @@ namespace MedievalCastle.Npc.Demo
             if (speakingUntil > 0 && Time.unscaledTime >= speakingUntil)
             {
                 speakingUntil = 0;
-                if (InConversation && actors[role]) actors[role].EndConversation();
+                if (InConversation && actors[role]) actors[role].Listen(viewer);
             }
             UpdateDesktop();
             UpdateHeadset();
@@ -85,12 +86,17 @@ namespace MedievalCastle.Npc.Demo
             chinese = useChinese;
             PlayerPrefs.SetString(LanguageKey, chinese ? "zh" : "en");
             PlayerPrefs.Save();
-            replyPage = 0;
         }
 
         internal void ToggleMenu()
         {
             MenuOpen = !MenuOpen;
+            if (MenuOpen)
+            {
+                menuChoice = chinese ? 1 : 0;
+                seenMenuPointer = false;
+            }
+            else languageSheet?.Hide();
             CastlePlayerMotor.MovementLocked = MenuOpen || InConversation;
         }
 
@@ -209,6 +215,7 @@ namespace MedievalCastle.Npc.Demo
             cancellation = request;
             result = null;
             failed = false;
+            replyIsChinese = chinese;
             replyPage = 0;
             speakingUntil = 0;
             var actor = actors[role];
@@ -236,7 +243,7 @@ namespace MedievalCastle.Npc.Demo
                 if (request == cancellation)
                 {
                     cancellation = null;
-                    if (failed && actor) actor.EndConversation();
+                    if (failed && actor) actor.Listen(viewer);
                 }
                 request.Dispose();
             }
@@ -244,6 +251,7 @@ namespace MedievalCastle.Npc.Demo
 
         private void OnDisable()
         {
+            languageSheet?.Hide();
             MenuOpen = false;
             EndTalk();
             if (headsetCanvas) headsetCanvas.gameObject.SetActive(false);
@@ -251,6 +259,7 @@ namespace MedievalCastle.Npc.Demo
 
         private void OnDestroy()
         {
+            languageSheet?.Destroy();
             if (headsetCanvas) Destroy(headsetCanvas.gameObject);
             if (desktopSkin) Destroy(desktopSkin);
             if (font) Destroy(font);

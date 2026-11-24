@@ -10,6 +10,9 @@ namespace MedievalCastle.Npc.Demo
         private GUIStyle headingStyle, captionStyle, speechStyle, promptStyle;
         private Vector2 desktopScroll;
         private bool clearTextFocus;
+        private CastleLanguageMenu languageSheet;
+        private bool seenMenuPointer;
+        private Vector2 lastMenuPointer;
         private readonly DesktopKey talkKey = new DesktopKey(), menuKey = new DesktopKey();
 
         // Game View can deliver IMGUI key events without updating Keyboard.current. Queue them
@@ -96,6 +99,24 @@ namespace MedievalCastle.Npc.Demo
             }
             else if (!MenuOpen && !InConversation && interactPressed)
                 BeginNearby(camera.transform);
+            if (MenuOpen)
+            {
+                ShowLanguageSheet(camera, false);
+                var mouse = Mouse.current;
+                if (mouse != null)
+                    SampleMenuPointer(mouse.position.ReadValue(), mouse.leftButton.wasPressedThisFrame,
+                        mouse.leftButton.wasReleasedThisFrame);
+            }
+        }
+
+        private void ShowLanguageSheet(Camera camera, bool headset)
+        {
+            if (languageSheet == null || !languageSheet.IsAlive)
+            {
+                languageSheet?.Destroy();
+                languageSheet = new CastleLanguageMenu(transform, font);
+            }
+            languageSheet.Show(camera, headset, chinese, menuChoice);
         }
 
         private void ResetDialoguePresentation()
@@ -154,6 +175,11 @@ namespace MedievalCastle.Npc.Demo
         {
             if (XRSettings.isDeviceActive) return;
             HandleGuiKeys(Event.current);
+            if (MenuOpen)
+            {
+                HandleMenuPointer(Event.current);
+                return;
+            }
             var original = GUI.skin;
             if (!desktopSkin) BuildDesktopSkin(original);
             var matrix = GUI.matrix;
@@ -169,8 +195,7 @@ namespace MedievalCastle.Npc.Demo
                     GUI.FocusControl(null);
                     clearTextFocus = false;
                 }
-                if (MenuOpen) DrawMenu(width, height);
-                else if (InConversation) DrawTalk(width, height);
+                if (InConversation) DrawTalk(width, height);
                 else DrawExplorationHint(width, height);
             }
             finally { GUI.skin = original; GUI.matrix = matrix; }
@@ -187,21 +212,27 @@ namespace MedievalCastle.Npc.Demo
             GUI.Label(new Rect(bounds.x + 17, bounds.y + 8, w - 34, h - 12), line, speechStyle);
         }
 
-        private void DrawMenu(float width, float height)
+        private void HandleMenuPointer(Event ev)
         {
-            float w = Mathf.Min(340, width - 24);
-            const float h = 174;
-            var bounds = new Rect((width - w) * .5f, Mathf.Max(4, (height - h) * .5f), w, h);
-            DrawBackdrop(bounds);
-            GUILayout.BeginArea(new Rect(bounds.x + 18, bounds.y + 10, w - 36, h - 20));
-            GUILayout.Label(T("Settings", "设置"), headingStyle);
-            GUILayout.Space(4);
-            GUILayout.Label(T("Language", "语言"), captionStyle);
-            int selected = GUILayout.Toolbar(chinese ? 1 : 0, new[] { "English", "中文" }, GUILayout.Height(31));
-            if (selected != (chinese ? 1 : 0)) SetLanguage(selected == 1);
-            GUILayout.Space(10);
-            if (GUILayout.Button(T("Resume", "继续游戏"), GUILayout.Height(32))) ToggleMenu();
-            GUILayout.EndArea();
+            bool down = ev.type == EventType.MouseDown && ev.button == 0;
+            bool up = ev.type == EventType.MouseUp && ev.button == 0;
+            if (!down && !up && ev.type != EventType.MouseMove && ev.type != EventType.MouseDrag) return;
+            var point = new Vector2(ev.mousePosition.x, Screen.height - ev.mousePosition.y);
+            if (SampleMenuPointer(point, down, up) && (down || up)) ev.Use();
+        }
+
+        internal bool SampleMenuPointer(Vector2 point, bool pressed, bool released)
+        {
+            if (!MenuOpen || languageSheet == null || !languageSheet.IsAlive) return false;
+            int hover = languageSheet.PointerRow(point);
+            bool moved = seenMenuPointer && (point - lastMenuPointer).sqrMagnitude >= .25f;
+            seenMenuPointer = true;
+            lastMenuPointer = point;
+            if (hover >= 0 && (moved || pressed || released)) menuChoice = hover;
+            int clicked = languageSheet.ClickRow(pressed, released, hover);
+            if (clicked >= 0) SetLanguage(clicked == 1);
+            languageSheet.Show(null, false, chinese, menuChoice);
+            return hover >= 0;
         }
 
         private void DrawTalk(float width, float height)

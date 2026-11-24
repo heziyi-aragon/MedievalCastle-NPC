@@ -113,6 +113,7 @@ MonoBehaviour:
   horseChest: {fileID: 3759665806270887217}
   earL: {fileID: 5287334684827541595}
   earR: {fileID: 7841628549319001380}
+  horseTail: {fileID: 878980688787291682}
 --- !u!136 &6519031831206270489
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -315,6 +316,12 @@ PrefabInstance:
     m_AddedComponents: []
   m_SourcePrefab: {fileID: -6321745213179183032, guid: db1f67fa76984262a56820cdf24a169e,
     type: 3}
+--- !u!4 &878980688787291682 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -2872456782568506214, guid: db1f67fa76984262a56820cdf24a169e,
+    type: 3}
+  m_PrefabInstance: {fileID: 6057411326220665528}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &2174049742744322304 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -3874229031121353800, guid: db1f67fa76984262a56820cdf24a169e,

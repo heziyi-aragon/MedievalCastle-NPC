@@ -7,12 +7,12 @@ namespace MedievalCastle.Npc.Demo
 {
     public sealed partial class NpcDemoPanel
     {
-        private enum HudChoice { Prompt1, Prompt2, Prompt3, NextPage, Retry, End, Resume, English, Chinese }
+        private enum HudChoice { Prompt1, Prompt2, Prompt3, NextPage, Retry, End }
         private readonly HudChoice[] hudChoices = new HudChoice[5];
         private readonly StringBuilder optionText = new StringBuilder(192);
         private int choiceCount, headsetChoice, menuChoice, replyPage;
         private float nextHudDraw;
-        private bool primaryHeld, backHeld, stickHeld, handConnected;
+        private bool primaryHeld, backHeld, stickHeld, handConnected, replyIsChinese;
         private Camera headsetCamera;
         private Canvas headsetCanvas;
         private RectTransform hudRect;
@@ -61,21 +61,23 @@ namespace MedievalCastle.Npc.Demo
             if (menu)
             {
                 ToggleMenu();
-                menuChoice = 0;
             }
-            else if (!MenuOpen && !InConversation)
+            else if (MenuOpen)
+            {
+                if (navigate) menuChoice = 1 - menuChoice;
+                if (confirm) SetLanguage(menuChoice == 1);
+            }
+            else if (!InConversation)
             {
                 if (confirm && !wasTalking) BeginNearby(camera.transform);
             }
             else
             {
                 SetHudChoices();
-                int index = MenuOpen ? menuChoice : headsetChoice;
-                index = Mathf.Clamp(index, 0, choiceCount - 1);
+                int index = Mathf.Clamp(headsetChoice, 0, choiceCount - 1);
                 if (navigate)
                     index = (index + (stickY < 0 ? 1 : -1) + choiceCount) % choiceCount;
-                if (MenuOpen) menuChoice = index;
-                else headsetChoice = index;
+                headsetChoice = index;
                 if (confirm) ActivateChoice(hudChoices[index]);
             }
 
@@ -86,19 +88,12 @@ namespace MedievalCastle.Npc.Demo
             }
         }
 
-        private int PageLength => chinese ? 48 : 112;
+        private int PageLength => replyIsChinese ? 48 : 112;
         private bool HasPages => result != null && result.Success && result.Reply.Length > PageLength;
 
         private void SetHudChoices()
         {
             choiceCount = 0;
-            if (MenuOpen)
-            {
-                hudChoices[choiceCount++] = HudChoice.Resume;
-                hudChoices[choiceCount++] = HudChoice.English;
-                hudChoices[choiceCount++] = HudChoice.Chinese;
-                return;
-            }
             if (Failed) hudChoices[choiceCount++] = HudChoice.Retry;
             else if (!Pending)
             {
@@ -117,9 +112,6 @@ namespace MedievalCastle.Npc.Demo
                 case HudChoice.Prompt1: case HudChoice.Prompt2: case HudChoice.Prompt3: return Prompt((int)choice);
                 case HudChoice.NextPage: return T("Next page", "翻页");
                 case HudChoice.Retry: return T("Retry", "重试");
-                case HudChoice.Resume: return T("Resume", "继续游戏");
-                case HudChoice.English: return chinese ? "English" : "English  •";
-                case HudChoice.Chinese: return chinese ? "中文  •" : "中文";
                 default: return T("End conversation", "结束交谈");
             }
         }
@@ -132,22 +124,25 @@ namespace MedievalCastle.Npc.Demo
                 case HudChoice.NextPage: replyPage = (replyPage + 1) % ((result.Reply.Length + PageLength - 1) / PageLength); break;
                 case HudChoice.Retry: Retry(); break;
                 case HudChoice.End: EndTalk(); break;
-                case HudChoice.Resume: ToggleMenu(); break;
-                case HudChoice.English: SetLanguage(false); break;
-                case HudChoice.Chinese: SetLanguage(true); break;
             }
         }
 
         private void PaintHud()
         {
-            bool exploring = !MenuOpen && !InConversation;
-            string line = exploring ? ExploreText(true) : MenuOpen ? "" : ConversationBody();
+            if (MenuOpen)
+            {
+                headsetCanvas.gameObject.SetActive(false);
+                ShowLanguageSheet(headsetCamera, true);
+                return;
+            }
+            bool exploring = !InConversation;
+            string line = exploring ? ExploreText(true) : ConversationBody();
             bool visible = !exploring || !string.IsNullOrEmpty(line);
             if (headsetCanvas.gameObject.activeSelf != visible) headsetCanvas.gameObject.SetActive(visible);
             if (!visible) return;
             float top = 10f;
-            top = SetHudLine(hudTitle, top, MenuOpen ? T("Settings", "设置") : exploring ? "" : RoleName(role), 38);
-            if (!MenuOpen && InConversation && HasPages)
+            top = SetHudLine(hudTitle, top, exploring ? "" : RoleName(role), 38);
+            if (InConversation && HasPages)
             {
                 int pages = (result.Reply.Length + PageLength - 1) / PageLength;
                 replyPage = Mathf.Clamp(replyPage, 0, pages - 1);
@@ -160,7 +155,7 @@ namespace MedievalCastle.Npc.Demo
             if (!exploring)
             {
                 SetHudChoices();
-                int index = Mathf.Clamp(MenuOpen ? menuChoice : headsetChoice, 0, choiceCount - 1);
+                int index = Mathf.Clamp(headsetChoice, 0, choiceCount - 1);
                 optionText.Clear();
                 for (int i = 0; i < choiceCount; i++)
                 {
@@ -170,7 +165,7 @@ namespace MedievalCastle.Npc.Demo
                 options = optionText.ToString();
             }
             top = SetHudLine(hudOptions, top, options, choiceCount * 36f);
-            string hint = exploring ? "" : T("Right stick ↑↓   ·   A  Confirm     B  Menu", "右摇杆 ↑↓ 选择     A 确认     B 菜单");
+            string hint = exploring ? "" : T("Right stick ↑↓   ·   A to confirm", "右摇杆上下选择   ·   A 确认");
             top = SetHudLine(hudHint, top, hint, 30);
             hudRect.sizeDelta = new Vector2(740, top + 10);
         }

@@ -41,7 +41,7 @@ namespace MedievalCastle.NPC.Editor
                 var headPosition = Bone("Head").position;
                 if (name == "Knight")
                 {
-                    foreach (var entry in new[] { ("horseChest", "HorseChest"), ("earL", "EarL"), ("earR", "EarR") })
+                    foreach (var entry in new[] { ("horseChest", "HorseChest"), ("earL", "EarL"), ("earR", "EarR"), ("horseTail", "HorseTail") })
                         settings.FindProperty(entry.Item1).objectReferenceValue = Bone(entry.Item2);
                     body.radius = .25f;
                     body.center = headPosition - Vector3.up * .28f;

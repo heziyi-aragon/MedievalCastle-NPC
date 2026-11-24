@@ -113,17 +113,28 @@ make('EarL',[-.093,1.973,.772],'horse',neck);make('EarR',[.093,1.973,.772],'hors
 const chest=make('Chest',[0,1.63,-.08],'body',root),head=make('Head',[0,2.112,-.08],'face',chest);make('Jaw',[0,2.182,.024],'face',head);make('GestureArm',[-.17,2.068,-.062],'body',chest);
 make('HorseRump',[0,1.19,-.63],'horse',horse);make('HorseWithers',[0,1.44,.41],'horse',horse);make('HorseMuzzle',[0,1.57,1.126],'horse',neck);
 for(const s of [-1,1])for(const end of ['Fore','Hind']){const id=end+(s<0?'L':'R'),z=end==='Fore'?.43:-.57;const leg=make(id,[s*.216,1.17,z],'horse',horse);make(id+'Cannon',[s*.233,.51,z-.02],'horse',leg)}
+make('HorseTail',[0,1.326,-.834],'horse',horse);
 use('HorseChest');
 // Barrel is a continuous sectional surface: croup, loins, ribs and brisket, with a visible tuck at the flanks.
-const barrel=[[0,1.14,-.888,.085,.185],[0,1.17,-.83,.213,.268],[0,1.19,-.70,.278,.293],[0,1.17,-.51,.30,.322],[0,1.14,-.32,.274,.331],[0,1.12,-.10,.277,.347],[0,1.12,.12,.313,.373],[0,1.142,.296,.302,.374],[0,1.17,.435,.261,.353],[0,1.17,.545,.204,.303],[0,1.181,.61,.12,.195],[0,1.192,.634,.035,.108]];
-loft('Pearl',barrel,'z',34);
+const barrel=[[0,1.165,-.905,.080,.162],[0,1.200,-.83,.228,.276],
+ [0,1.209,-.70,.297,.295],[0,1.197,-.52,.297,.294],[0,1.174,-.32,.268,.287],
+ [0,1.131,-.10,.273,.329],[0,1.115,.12,.309,.364],[0,1.145,.296,.301,.395],
+ [0,1.173,.435,.257,.381],[0,1.17,.545,.204,.304],[0,1.181,.61,.12,.194],[0,1.192,.634,.035,.108]];
+loft('Pearl',smoothPath(barrel,2),'z',32,(p,a)=>{
+ const haunch=Math.exp(-((p[2]+.65)**2)/.069);
+ // The near hip drops slightly over the resting hind leg; the saddle bed stays level.
+ return [p[0],p[1]+.022*haunch*sin(a)*Math.max(0,cos(a)),p[2]];
+});
 for(const s of [-1,1]){sweep('Pearl',[[s*.215,1.40,-.70],[s*.259,1.27,-.637],[s*.245,1.10,-.605],[s*.218,.92,-.51]],[[.029,.051],[.069,.105],[.07,.094],[.045,.052]],15);
  // The scapula and deep pectoral lie in the surface, not freestanding spheres.
  sweep('Pearl',[[s*.145,1.475,.236],[s*.234,1.372,.337],[s*.245,1.216,.412],[s*.214,1.026,.387]],[[.033,.036],[.068,.082],[.076,.105],[.044,.062]],16);
 }
-for(const s of [-1,1])for(const front of [true,false]){const id=(front?'Fore':'Hind')+(s<0?'L':'R'),x=s*(front?.198:.21),step=front?(s<0?.025:-.073):(s<0?-.04:.045),z=front?.416:-.616;
+for(const s of [-1,1])for(const front of [true,false]){const id=(front?'Fore':'Hind')+(s<0?'L':'R'),x=s*(front?.198:.21),step=front?(s<0?.066:-.092):(s<0?.108:.038),z=front?.416:-.616;
+ const resting=!front&&s<0;
  use(id);const path=front?[[x,1.287,z],[x+.013*s,1.155,z+.049],[x+.019*s,.987,z+.032],[x+.025*s,.882,z-.018],[x+.032*s,.735,z+step*.35],[x+.031*s,.57,z+.014+step],[x+.027*s,.51,z+.02+step]]:
- [[x,1.302,z],[x+.013*s,1.142,z-.006],[x+.021*s,1.00,z+.079],[x+.019*s,.899,z+.137],[x+.025*s,.79,z+.074],[x+.027*s,.657,z-.039],[x+.026*s,.555,z-.126+step],[x+.026*s,.511,z-.12+step]];
+ [[x,1.302,z],[x+.013*s,1.142,z-.006],[x+.021*s,1.00,z+(resting?.110:.069)],
+ [x+.019*s,.899,z+(resting?.188:.118)],[x+.025*s,.79,z+(resting?.112:.046)],
+ [x+.027*s,.657,z+(resting?-.004:-.061)],[x+.026*s,.555,z-.126+step],[x+.026*s,.511,z-.12+step]];
  const radii=front?[[.111,.111],[.112,.134],[.085,.113],[.066,.087],[.059,.070],[.053,.058],[.054,.066]]:[[.122,.13],[.122,.156],[.095,.145],[.074,.102],[.070,.088],[.055,.071],[.046,.071],[.044,.056]];
  const limb=smoothPath(path,2),limbRadii=smoothPath(radii,2);
  sweep('Pearl',limb,limbRadii,22);
@@ -131,15 +142,19 @@ for(const s of [-1,1])for(const front of [true,false]){const id=(front?'Fore':'H
  const profile=front?
   [[.068,1.18,.042],[.073,1.09,.070],[.066,.994,.071],[.049,.909,.034],[.041,.823,.010]]:
   [[.086,1.25,-.038],[.103,1.151,-.037],[.088,1.050,.038],[.058,.957,.105],[.043,.901,.123]];
- const muscle=profile.map(([dx,yy,dz])=>[x+s*dx,yy,z+dz]);
+ const muscle=profile.map(([dx,yy,dz])=>[x+s*dx,yy,z+dz+(resting?.046*clamp((1.20-yy)/.30):0)]);
  sweep('Pearl',smoothPath(muscle,2),smoothPath([[.028,.024],[.045,.050],[.042,.056],[.023,.036],[.004,.011]],2),12);
- use(id+'Cannon');const start=path.at(-1),zz=start[2],xx=start[0],lift=front&&s<0?.035:0;
- const below=[start,[xx,.471,zz+.006],[xx,.408,zz+.015],[xx,.27,zz+.023],[xx,.205+lift,zz+.013],[xx,.172+lift,zz+.016],[xx,.117+lift,zz+.055]];
- sweep(front&&s<0?'Pearl':'ShadowCoat',smoothPath(below,2),smoothPath([[.055,.062],[.047,.058],[.035,.046],[.032,.038],[.049,.056],[.046,.060],[.039,.046]],2),18);
+ use(id+'Cannon');const start=path.at(-1),xx=start[0],lift=resting?.018:0;
+ const zz=start[2]+(resting?.062:0);
+ const below=[mix(start,path.at(-2),.53),start,[xx,.471,start[2]+.006],[xx,.408,start[2]+(resting?.026:.015)],
+  [xx,.27,zz+.018],[xx,.205+lift,zz+.013],[xx,.172+lift,zz+.016],[xx,.122+lift,zz+.045],[xx,.089+lift,zz+.057]];
+ sweep(front&&s<0?'Pearl':'ShadowCoat',smoothPath(below,2),smoothPath([[.041,.050],[.053,.060],[.047,.058],
+  [.035,.046],[.032,.038],[.049,.056],[.046,.060],[.042,.048],[.035,.040]],2),17);
  // Delicate tendon line, corona and layered, flattened hoof with toe facing forward.
  sweep('Muzzle',[[xx+.034*s,.441,zz-.021],[xx+.030*s,.357,zz-.014],[xx+.029*s,.248,zz-.005],[xx+.040*s,.194+lift,zz-.010]],[[.004,.006],[.003,.006],[.004,.005],[.005,.007]],7);
- loft('Hoof',[[xx,.002+lift,zz+.064,.066,.090],[xx,.014+lift,zz+.067,.071,.095],[xx,.045+lift,zz+.069,.067,.087],[xx,.098+lift,zz+.052,.056,.065],[xx,.123+lift,zz+.044,.045,.054]],'y',24);
- loft('ShadowCoat',[[xx,.095+lift,zz+.05,.057,.066],[xx,.106+lift,zz+.049,.057,.064],[xx,.122+lift,zz+.045,.045,.055]],'y',19);
+ const hoofSlope=(p,a)=>[p[0],p[1]-(resting?.018*cos(a):0),p[2]];
+ loft('Hoof',[[xx,.002+lift,zz+.064,.066,.090],[xx,.014+lift,zz+.067,.071,.095],[xx,.045+lift,zz+.069,.067,.087],[xx,.098+lift,zz+.052,.056,.065],[xx,.123+lift,zz+.044,.045,.054]],'y',24,hoofSlope);
+ loft('ShadowCoat',[[xx,.095+lift,zz+.05,.057,.066],[xx,.106+lift,zz+.049,.057,.064],[xx,.122+lift,zz+.045,.045,.055]],'y',19,hoofSlope);
  for(let k=0;k<5;k++){
   const theta=PI*(.61+k*.18),dx=sin(theta),dz=cos(theta);
   const feather=[[xx+.041*dx,.194+lift,zz+.013+.050*dz],
@@ -150,8 +165,8 @@ for(const s of [-1,1])for(const front of [true,false]){const id=(front?'Fore':'H
 }
 use('HorseNeck');
 // Curving cervix tapers upward to poll; cross-sections lie across the sweep instead of being stacked balls.
-sweep('Pearl',[[0,1.22,.415],[0,1.353,.505],[0,1.492,.563],[0,1.615,.611],[0,1.746,.704],[0,1.858,.767],[0,1.933,.775]],
- [[.231,.296],[.213,.266],[.18,.224],[.158,.191],[.13,.161],[.113,.12],[.08,.081]],28);
+sweep('Pearl',smoothPath([[0,1.22,.415],[0,1.353,.500],[0,1.506,.556],[0,1.642,.606],[0,1.770,.674],[0,1.870,.737],[0,1.941,.775]],3),
+ smoothPath([[.231,.296],[.216,.279],[.176,.240],[.151,.203],[.126,.165],[.106,.123],[.080,.081]],3),26);
 const skull=[[0,1.898,.748],[0,1.903,.805],[0,1.874,.876],[0,1.805,.938],[0,1.735,1.004],[0,1.64,1.084],[0,1.585,1.128],[0,1.559,1.14]];
 sweep('Pearl',skull,[[.092,.12],[.133,.145],[.14,.154],[.121,.131],[.102,.104],[.08,.074],[.087,.079],[.072,.058]],28);
 sweep('Muzzle',[[0,1.608,1.116],[0,1.577,1.145],[0,1.549,1.153],[0,1.529,1.142]],[[.082,.063],[.094,.073],[.090,.069],[.059,.043]],22);
@@ -177,10 +192,10 @@ for(let i=0;i<=11;i++){const u=i/11,y=1.44+u*.533,z=.34+u*.412+.018*sin(u*PI),s=
  if(i%2===0)cord('SilkMane',pts.slice(1,5).map(p=>add(p,[s*.009,.008,0])),.0026)
 }
 for(let i=0;i<6;i++){const x=(i-2.5)*.017;const pts=[[x,1.989,.780],[x*1.1,2.006,.819],[x*1.13-.005,1.98,.867],[x*1.2-.018,1.923,.903],[x*1.1-.018,1.894+.012*sin(i),.921]];sweep(i%2?'Ash':'Graphite',pts,[[.018,.02],[.022,.021],[.019,.015],[.013,.01],[.001,.001]],11)}
-use('HorseChest');
+use('HorseTail');
 const tailCentre=[[0,1.326,-.834],[.005,1.311,-.945],[.035,1.205,-1.016],
- [.076,1.047,-1.064],[.101,.892,-1.117],[.116,.723,-1.153],
- [.095,.573,-1.147],[.054,.447,-1.114],[.023,.374,-1.077]];
+ [.062,1.047,-1.086],[.076,.892,-1.162],[.056,.723,-1.204],
+ [.004,.573,-1.207],[-.051,.437,-1.17],[-.070,.337,-1.111]];
 const tailRadii=[[.042,.038],[.076,.062],[.091,.079],[.098,.087],[.100,.078],
  [.091,.069],[.069,.052],[.043,.034],[.006,.006]];
 sweep('Graphite',smoothPath(tailCentre,2),smoothPath(tailRadii,2),21);
@@ -236,13 +251,14 @@ for(const s of [-1,1]){ell('Mahogany',[s*.217,1.314,-.079],[.04,.126,.130],18,11
    [s*.289,1.279,-.213],[s*.296,1.235,-.200]],.008);
 }
 // A properly cut split riding gown. Its top follows the waist; the open hem clears horse and saddle.
-function drape(side,u,v,inflate=0){const a=u*PI,sa=sin(a),ca=cos(a),wave=sin(12*a+.92*v+.27*sin(3*a));
- const fall=.098+.512*sa**.88+.029*(1-ca)+.024*wave*sa+.014*sin(3*a)*sa;
- const flare=sin(Math.min(1,v)*PI/2),pleat=(.028*wave+.007*cos(22*a+.7*v))*v**1.38*sa;
+function drape(side,u,v,inflate=0){const a=u*PI,sa=sin(a),ca=cos(a),wave=sin(10*a+.92*v+.27*sin(3*a));
+ const fall=.115+.568*sa**.88+.060*(1-ca)+.022*wave*sa+.014*sin(3*a)*sa;
+ // Extra fullness falls forward over the bent knee, then hangs nearly vertical below it.
+ const flare=sin(Math.min(1,v*1.23)*PI/2),pleat=(.022*wave+.005*cos(19*a+.7*v))*v**1.38*sa;
  // Extra ease over the forward knee keeps the embroidered panel outside its steel cop.
- const kneeEase=.056*Math.exp(-(((u-.266)/.099)**2+((v-.80)/.27)**2));
- const xx=(.145+.313*flare+pleat+inflate+kneeEase)*sa;
- const zExtent=.12+v*(ca>=0?.258:.414)+.015*v*wave+inflate+kneeEase*.70;
+ const kneeEase=.065*Math.exp(-(((u-.275)/.111)**2+((v-.67)/.27)**2));
+ const xx=(.145+.262*flare+pleat+inflate+kneeEase)*sa;
+ const zExtent=.12+v*(ca>=0?.246:.457)+.013*v*wave+inflate+kneeEase*.72;
  const yy=1.684-v*fall+.015*cos(12*a+.4*v)*sa*v;
  return [side*xx,yy,-.082+ca*zExtent]
 }
@@ -345,17 +361,22 @@ use('Head');
 // Soft tapered face with a projected brow ridge, small integrated nose bridge and pronounced cheek planes.
 const faceLevels=[[-.005,2.117,-.059,.019,.033],[-.002,2.133,-.059,.048,.06],[0,2.156,-.065,.075,.079],[0,2.181,-.068,.092,.088],[0,2.209,-.073,.103,.102],[0,2.239,-.077,.115,.110],[0,2.269,-.077,.119,.115],[0,2.299,-.081,.119,.115],[0,2.337,-.086,.115,.110],[0,2.37,-.09,.101,.102],[0,2.395,-.089,.079,.084],[0,2.411,-.086,.051,.065],[0,2.421,-.082,.019,.032]];
 const smoothSections=smoothPath(faceLevels,2);
-function addNose(z,y,x,front){if(!front)return z;
+function addNose(z,y,x,facing){
+ const blend=clamp((facing-.10)/.36);
  const bump=(cx,cy,wx,wy)=>Math.exp(-(((Math.abs(x)-cx)/wx)**2+((y-cy)/wy)**2));
  const cheek=.0105*bump(.067,2.233,.031,.023),socket=-.010*bump(.051,2.265,.032,.021);
  const brow=.006*bump(.049,2.288,.036,.011),temple=-.004*bump(.096,2.28,.015,.031);
  const bridge=.019*bump(0,2.251,.010,.041),tip=.021*bump(0,2.222,.014,.012);
  const alae=.010*bump(.015,2.218,.009,.007),philtrum=.0028*bump(.006,2.200,.003,.008);
  const chin=.007*bump(0,2.156,.031,.013),mouth=.004*bump(0,2.183,.030,.014);
- return z+cheek+socket+brow+temple+bridge+tip+alae+philtrum+chin+mouth;
+ return z+(cheek+socket+brow+temple+bridge+tip+alae+philtrum+chin+mouth)*blend*blend*(3-2*blend);
 }
-function frontAt(x,y){let i=1;while(i<smoothSections.length-1&&smoothSections[i][1]<y)i++;const l=smoothSections[i-1],h=smoothSections[i],t=clamp((y-l[1])/(h[1]-l[1]));const r=l[3]+t*(h[3]-l[3]),z=l[2]+t*(h[2]-l[2]),rz=l[4]+t*(h[4]-l[4]);return addNose(z+rz*Math.sqrt(clamp(1-((x-l[0])/r)**2)),y,x,true)}
-loft('Skin',smoothSections,'y',72,(p,a)=>[p[0],p[1],addNose(p[2],p[1],p[0],cos(a)>.28)]);
+function frontAt(x,y){let i=1;while(i<smoothSections.length-1&&smoothSections[i][1]<y)i++;const l=smoothSections[i-1],h=smoothSections[i],t=clamp((y-l[1])/(h[1]-l[1]));const r=l[3]+t*(h[3]-l[3]),z=l[2]+t*(h[2]-l[2]),rz=l[4]+t*(h[4]-l[4]);const facing=Math.sqrt(clamp(1-((x-l[0])/r)**2));return addNose(z+rz*facing,y,x,facing)}
+loft('Skin',smoothSections,'y',72,(p,a)=>{
+ // Keep the cranial vault inside the hair cap at the occiput and temples.
+ const underHair=clamp((p[1]-2.265)/.080)*clamp((.86-cos(a))/.78);
+ return[p[0]*(1-.13*underHair),p[1],addNose(p[2]+(-.084-p[2])*.24*underHair,p[1],p[0],cos(a))];
+});
 for(const s of [-1,1]){ell('Skin',[s*.113,2.238,-.080],[.024,.038,.018],16,10);ell('Blush',[s*.12,2.238,-.065],[.012,.024,.007],14,8);ell('Gold',[s*.117,2.205,-.063],[.006,.007,.005],10);
  const ex=s*.050,y0=2.263;
  function ep(u,v,depth){const x=ex+u*.0317,base=y0+s*u*.0028,arch=Math.max(0,1-u*u)**.74;

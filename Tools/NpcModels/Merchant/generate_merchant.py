@@ -141,7 +141,9 @@ def ring(tile,levels,fold=0,waves=10,start=0,end=tau,hem=0,nu=48,nv=20,twirl=0,p
     def fn(u,v):
         y=lo+(hi-lo)*v;rx,rz,x,z=[np.interp(y,L[:,0],L[:,k]) for k in range(1,5)]
         aa,bb=(start,end) if part is None else part(v)
-        ang=aa+(bb-aa)*u; fl=fold*(.67*sin(waves*ang+twirl*v)+.28*sin((waves+3)*ang-1.8*v)+.2*sin(3*ang+v))
+        ang=aa+(bb-aa)*u
+        amplitude=fold(v) if callable(fold) else fold
+        fl=amplitude*(.67*sin(waves*ang+twirl*v)+.28*sin((waves+3)*ang-1.8*v)+.2*sin(3*ang+v))
         return [x+(rx+fl)*sin(ang),y+(1-v)**4*hem*(.6*cos(6*ang)+.3*sin(3*ang)),z+(rz+fl)*cos(ang)]
     surface(tile,fn,nu,nv)
     return fn
@@ -195,12 +197,18 @@ for side in [-1,1]:
 
 # Continuous under-robe + wrapped crossover bodice + split, independently draped coat.
 g=2
-levels=[(.167,.224,.16,0,.006),(.24,.232,.16),(.48,.218,.147),(.73,.205,.141),(.94,.19,.145),(1.08,.171,.142),(1.23,.217,.155),(1.354,.234,.138),(1.405,.17,.114),(1.45,.085,.081)]
+levels=[(.145,.266,.184,0,.006),(.24,.258,.177),(.48,.229,.162),(.73,.202,.146),(.94,.185,.144),(1.08,.171,.142),(1.23,.221,.158),(1.354,.253,.148),(1.405,.17,.114),(1.45,.085,.081)]
 under=ring(2,levels,.012,13,hem=.012,nu=78,nv=40,twirl=2.6)
-for y in [.185,.197]:band(2,y,.226,.169,.003)
-over=[(.237,.236,.174),(.36,.244,.171),(.59,.221,.162),(.91,.21,.153),(1.04,.182,.151),(1.22,.224,.163),(1.35,.247,.149),(1.406,.194,.131),(1.448,.085,.09)]
-def openangle(v):return .31+.20*(1-v)**.8+.18*abs(sin(pi*v*1.2))
-coat=ring(0,over,.0085,11,hem=.013,nu=84,nv=44,twirl=1.85,part=lambda v:(openangle(v),tau-openangle(v)))
+over=[(.193,.313,.224,-.010,-.021),(.32,.297,.208,-.008,-.016),(.59,.245,.185,-.006,-.010),(.84,.212,.162),(.99,.185,.151),(1.05,.183,.151),(1.22,.234,.169),(1.35,.261,.158),(1.406,.204,.135),(1.448,.085,.09)]
+
+# The back gathers into heavier folds below the girdle. Across the instep the
+# two open fronts diverge towards the hem, exposing the lighter under-robe.
+def openangle(v):return .30+.39*(1-v)**1.7+.12*abs(sin(pi*v*1.2))
+coat=ring(0,over,lambda v:.005+.022*max(0,1-v/.65)**1.2,9,hem=.023,
+          nu=100,nv=48,twirl=2.9,part=lambda v:(openangle(v)+.045*(1-v),tau-openangle(v)))
+for v in [.022,.043]:
+    surface(1,lambda u,h: np.array(coat(u,v+(h-.5)*.008))+
+            .0018*unit(np.array(coat(u,v))*[1,0,1]),80,3)
 for side in [0,1]:
     # broad woven facing and a double gold cord along the opening
     def lapel(u,v):
@@ -239,11 +247,12 @@ disk(11,[0,.992,.183],.013,.006)
 for s in [-1,1]:
     for k in range(2):disk(8,[s*(.053+.023*k),.994+s*.004,.166-.009*k],.004,.003)
 curved(8,[(.072,.974,.157),(.098,.89,.173),(.129,.853,.183)],.003)
-ell(4,[.16,.868,.145],[.063,.075,.034],26,16,angle=-.12)
-ell(4,[.16,.897,.162],[.064,.032,.029],22,12,angle=-.1)
-disk(8,[.163,.884,.193],.009,.003)
+ell(4,[.213,.845,.133],[.081,.095,.046],26,16,angle=.17)
+ell(4,[.207,.892,.156],[.077,.041,.034],22,12,angle=.17)
+disk(8,[.211,.865,.187],.011,.004)
 for s in [-1,1]:
-    curved(4,[(.16+.032*s,.91,.148),(.16+.025*s,.951,.137),(.16+.022*s,.986,.127)],.009)
+    curved(4,[(.209+.041*s,.90,.146),(.197+.027*s,.95,.125),(.173+.018*s,.988,.102)],.009)
+    curved(8,[(.211,.860,.181),(.212+.026*s,.844,.179),(.221+.037*s,.851,.175)],.0018,6)
 
 # Cheekbones, eye sockets, brow pads and bridge are sculpted into a single face surface.
 g=3
@@ -390,8 +399,8 @@ for k in range(2):
 # Elbow bends and generous tapered sleeves; the left-hand pitch presents an open palm.
 for s in [-1,1]:
     g=5 if s<0 else 6
-    sh=np.array([s*.198,1.352,-.005]); elbow=np.array([s*.292,1.12,.034])
-    wrist=np.array([s*(.365 if s<0 else .252),1.167 if s<0 else 1.067,.168 if s<0 else .185])
+    sh=np.array([s*.209,1.352,-.005]); elbow=np.array([s*(.308 if s<0 else .324),1.102,.016])
+    wrist=np.array([s*(.365 if s<0 else .268),1.167 if s<0 else 1.082,.168 if s<0 else .225])
     def sleeve_center(t):
         upper=elbow-sh;fore=wrist-elbow
         if t<.39:return sh+upper*(t/.49)
@@ -402,7 +411,7 @@ for s in [-1,1]:
     def sleeve_point(u,t,extra=0):
         center=sleeve_center(t);axis=unit(sleeve_center(t+.001)-sleeve_center(t-.001))
         e=unit(np.cross([0,0,1],axis));f=unit(np.cross(axis,e));a=tau*u
-        r=np.interp(t,[0,.17,.36,.53,.70,.90,1],[.087,.088,.073,.062,.067,.049,.043])
+        r=np.interp(t,[0,.17,.36,.53,.70,.90,1],[.091,.096,.080,.073,.071,.049,.043])
         pleats=(.0018+.0028*sin(pi*t))*(.6*cos(7*a+4*t)+.4*sin(5*a-t))
         # Short tension folds follow the bent elbow; long soft flutes broaden toward the cuff.
         crease=0
@@ -450,7 +459,7 @@ for s in [-1,1]:
     else:
         # The palm bears against the back board. Four fingers wrap under the foot;
         # the thumb reaches round the spine to brace the front cover.
-        bx,by,bz=.281,1.116,.225; ang=-.17
+        bx,by,bz=.306,1.136,.268; ang=-.24
         def bp(x,y,z):
             return np.array([bx+x*cos(ang)-y*sin(ang),by+x*sin(ang)+y*cos(ang),bz+z])
         curved(5,[sleeve_center(.89),wrist,bp(-.026,-.054,-.043),bp(-.012,-.065,-.041)],

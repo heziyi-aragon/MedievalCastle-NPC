@@ -56,13 +56,6 @@ namespace MedievalCastle.Tests
                 for (var i = 0; i < 100; i++) motor.Step(Vector2.up, 0f, 1f / 60);
                 var blocked = eye.transform.position;
                 Assert.That(blocked.x - start.x, Is.InRange(1.55f, 1.85f), "Capsule stops before the wall");
-                motor.Step(Vector2.zero, 1f, 1f / 60);
-                for (var i = 0; i < 20; i++) motor.Step(Vector2.zero, 1f, 1f / 60);
-                Assert.That(Mathf.DeltaAngle(root.transform.eulerAngles.y, 30f), Is.EqualTo(0f).Within(.05f));
-                Assert.That(Vector3.Distance(eye.transform.position, blocked), Is.LessThan(.1f), "Snap about the physical eye");
-                motor.Step(Vector2.zero, 0f, 1f / 60);
-                motor.Step(Vector2.zero, -1f, 1f / 60);
-                Assert.That(Mathf.DeltaAngle(root.transform.eulerAngles.y, 0f), Is.EqualTo(0f).Within(.05f));
             }
             finally
             {
@@ -70,6 +63,70 @@ namespace MedievalCastle.Tests
                 Object.DestroyImmediate(root);
                 Object.DestroyImmediate(wall);
                 Object.DestroyImmediate(floor);
+            }
+        }
+
+        [TestCase(30)]
+        [TestCase(72)]
+        [TestCase(90)]
+        [TestCase(120)]
+        public void SmoothTurningTracksStickStrengthKeepsEyePivotAndResetsAcrossMenus(int fps)
+        {
+            var root = new GameObject("Sampled turning player");
+            bool previousLock = CastlePlayerMotor.MovementLocked;
+            try
+            {
+                root.transform.position = new Vector3(120, 160, 120);
+                var eye = new GameObject("Offset eye").AddComponent<Camera>();
+                eye.enabled = false;
+                eye.transform.SetParent(root.transform, false);
+                eye.transform.localPosition = new Vector3(.45f, 1.63f, -.24f);
+                var pivot = eye.transform.position;
+                var motor = root.AddComponent<CastlePlayerMotor>();
+                motor.Configure(eye, true);
+                CastlePlayerMotor.MovementLocked = false;
+                float Yaw() => root.transform.eulerAngles.y;
+                void Sample(Vector2 stick, int count)
+                {
+                    for (int i = 0; i < count; i++) motor.Step(Vector2.zero, stick, 1f / fps);
+                }
+                Sample(new Vector2(.12f, .97f), fps);
+                Assert.That(Mathf.DeltaAngle(0f, Yaw()), Is.EqualTo(0f).Within(.01f));
+                Sample(Vector2.right, 1);
+                Assert.That(Yaw(), Is.InRange(.005f, .35f), "Ease in on the first frame.");
+                Sample(Vector2.right, fps - 1);
+                Assert.That(Yaw(), Is.EqualTo(61.1f).Within(.05f), "65 degrees/s after 0.12s ramp.");
+                float beforeRelease = Yaw();
+                Sample(Vector2.zero, fps);
+                Assert.That(Mathf.DeltaAngle(beforeRelease, Yaw()), Is.EqualTo(2.6f).Within(.04f));
+                var worldEye = eye.transform.position;
+                Assert.That(Vector2.Distance(new Vector2(worldEye.x, worldEye.z), new Vector2(pivot.x, pivot.z)),
+                    Is.LessThan(.01f), "The camera should turn in place even after a physical sidestep.");
+                float halfStart = Yaw();
+                Sample(Vector2.right * .59f, fps); // halfway between the dead zone and the end of travel
+                Assert.That(Mathf.DeltaAngle(halfStart, Yaw()), Is.EqualTo(31.525f).Within(.05f));
+                float beforeReverse = Yaw();
+                Sample(Vector2.left, 1);
+                Assert.That(Mathf.DeltaAngle(beforeReverse, Yaw()), Is.GreaterThan(0f), "Ease through a reversal.");
+                Sample(Vector2.left, fps);
+                Assert.That(Mathf.DeltaAngle(beforeReverse, Yaw()), Is.LessThan(-50f));
+                float paused = Yaw();
+                CastlePlayerMotor.MovementLocked = true;
+                Sample(Vector2.left, fps);
+                Assert.That(Mathf.DeltaAngle(paused, Yaw()), Is.EqualTo(0f).Within(.01f));
+                CastlePlayerMotor.MovementLocked = false;
+                Sample(Vector2.up, fps / 2);
+                Sample(Vector2.left, fps);
+                Assert.That(Mathf.DeltaAngle(paused, Yaw()), Is.EqualTo(0f).Within(.01f),
+                    "Sliding sideways from a menu selection must not steer until the stick returns to center.");
+                Sample(Vector2.zero, 1);
+                Sample(Vector2.left, fps);
+                Assert.That(Mathf.DeltaAngle(paused, Yaw()), Is.EqualTo(-61.1f).Within(.05f));
+            }
+            finally
+            {
+                CastlePlayerMotor.MovementLocked = previousLock;
+                Object.DestroyImmediate(root);
             }
         }
 

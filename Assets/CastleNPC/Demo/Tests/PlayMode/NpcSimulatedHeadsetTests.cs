@@ -70,14 +70,25 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             yield return Approach("guard");
             Frame(a: true); Frame();
             Assert.That(Panel.SelectedRole, Is.Zero);
+            var chat = Eye.transform.Find("NPC headset dialogue");
+            Assert.That(chat.Find("Controls").GetComponent<Text>().text, Does.Not.Contain("B"));
             Frame(b: true); Frame();
             Assert.That(Panel.MenuOpen, Is.True);
-            Frame(stick: -1f); Frame();
-            Frame(stick: -1f); Frame();
-            Frame(a: true); Frame();
+            Assert.That(chat.gameObject.activeSelf, Is.False);
+            var sheet = Eye.transform.Find("Castle language settings/Parchment");
+            Assert.That(sheet.GetComponent<RawImage>().texture, Is.Not.Null);
+            Assert.That(sheet.Find("Close menu hint").GetComponent<Text>().text, Is.EqualTo("Press B again to close"));
+            var activeLabels = sheet.GetComponentsInChildren<Text>();
+            Assert.That(System.Array.Exists(activeLabels, t => t.text.Contains("Resume")), Is.False);
+            Assert.That(sheet.Find("English").GetComponent<Text>().text, Is.EqualTo("English"));
+            Assert.That(sheet.Find("Chinese").GetComponent<Text>().text, Is.EqualTo("中文"));
+            Frame(stick: -1f); Frame(stick: -1f); Frame();
+            Assert.That(Panel.Chinese, Is.False, "Moving the focus must not change the saved language.");
+            Frame(a: true); Frame(a: true); Frame();
+            Assert.That(Panel.MenuOpen, Is.True, "Selecting a language leaves settings open.");
             Assert.That(Panel.Chinese, Is.True);
             Assert.That(PlayerPrefs.GetString(LanguageKey), Is.EqualTo("zh"));
-            if (Panel.MenuOpen) { Frame(b: true); Frame(); }
+            Frame(b: true); Frame(b: true); Frame();
             Assert.That(Panel.MenuOpen, Is.False);
             Assert.That(Panel.InConversation, Is.True);
             Assert.That(Panel.SelectedRole, Is.Zero);
@@ -86,6 +97,43 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             Assert.That(Panel.LastTurn, Is.Not.Null);
             Assert.That(Panel.LastTurn.Decision.Action, Is.EqualTo(NpcAction.CheckPass));
             Assert.That(Panel.LastTurn.Reply, Does.Match("[\u4e00-\u9fff]"));
+        }
+
+        [UnityTest]
+        public IEnumerator AnInFlightReplySurvivesSettingsAndClosingWithAHeldADoesNotSendAgain()
+        {
+            Panel.enabled = false;
+            var provider = new ConversationSelectionTests.ControlledProvider();
+            Service.SetProviderForTesting(provider);
+            yield return Approach("guard");
+            Frame(); Frame(a: true); Frame(); Frame(a: true); Frame();
+            Assert.That(Panel.LastTurn, Is.Null);
+            Assert.That(provider.Requests, Has.Count.EqualTo(1));
+            Frame(b: true); Frame(b: true); Frame();
+            Frame(stick: -1f); Frame(); Frame(a: true); Frame();
+            Assert.That(Panel.MenuOpen && Panel.Chinese, Is.True);
+            Assert.That(Panel.LastTurn, Is.Null);
+            string answer = "I can check your pass. " + new string('x', 212);
+            provider.Replies[0].SetResult("{\"reply\":\"" + answer + "\",\"action\":\"check_pass\",\"itemId\":\"\",\"quantity\":0,\"questId\":\"\"}");
+            float deadline = Time.realtimeSinceStartup + 3f;
+            while (Panel.LastTurn == null && Time.realtimeSinceStartup < deadline) yield return null;
+            Assert.That(Panel.LastTurn, Is.Not.Null);
+            Assert.That(Panel.LastTurn.Success, Is.True);
+            var turnId = Panel.LastTurn.TurnId;
+            Frame(a: true, b: true); Frame(a: true); Frame();
+            Assert.That(Panel.MenuOpen, Is.False);
+            Assert.That(Panel.SelectedRole, Is.Zero);
+            Assert.That(Panel.LastTurn.TurnId, Is.EqualTo(turnId));
+            var reply = Eye.transform.Find("NPC headset dialogue/Reply").GetComponent<Text>();
+            Assert.That(reply.text, Does.StartWith("(1/3)").And.Contain("check your pass"));
+            Frame(a: true); Frame();
+            var secondPage = reply.text;
+            Assert.That(secondPage, Does.StartWith("(2/3)"));
+            Frame(b: true); Frame(); Frame(stick: 1f); Frame(); Frame(a: true); Frame();
+            Frame(b: true); Frame();
+            Assert.That(Panel.Chinese, Is.False);
+            Assert.That(reply.text, Is.EqualTo(secondPage), "Changing UI language must preserve the page of an existing reply.");
+            Assert.That(provider.Requests, Has.Count.EqualTo(1));
         }
 
         [UnityTest]

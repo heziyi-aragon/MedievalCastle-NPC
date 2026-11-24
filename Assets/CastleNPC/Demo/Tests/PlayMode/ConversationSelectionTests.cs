@@ -213,6 +213,55 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             Assert.That(reopened.MenuOpen || reopened.InConversation, Is.False);
         }
 
+        [UnityTest, Category("Desktop")]
+        public IEnumerator OpeningSettingsFocusesTheSavedLanguageUntilThePointerMovesOrClicks()
+        {
+            Panel.enabled = false;
+            var priorMouse = Mouse.current;
+            var mouse = InputSystem.AddDevice<Mouse>("CastleMenuTestMouse");
+            try
+            {
+                mouse.MakeCurrent();
+                InputState.Change(mouse.position, Vector2.zero);
+                Panel.HandleDesktopFrame(Eye, false, true);
+                Canvas.ForceUpdateCanvases();
+                var sheet = GameObject.Find("Castle language settings").transform.Find("Parchment");
+                var english = sheet.Find("Language row 0").GetComponent<UnityEngine.UI.Image>();
+                var chinese = sheet.Find("Language row 1").GetComponent<UnityEngine.UI.Image>();
+                var en = RectTransformUtility.WorldToScreenPoint(null, english.rectTransform.position);
+                var zh = RectTransformUtility.WorldToScreenPoint(null, chinese.rectTransform.position);
+                Color focus = english.color;
+                Assert.That(chinese.color, Is.Not.EqualTo(focus));
+                Panel.HandleDesktopFrame(Eye, false, true);
+                InputState.Change(mouse.position, zh);
+                Panel.HandleDesktopFrame(Eye, false, true);
+                Panel.HandleDesktopFrame(Eye, false, false);
+                Assert.That(english.color, Is.EqualTo(focus), "A stationary pointer cannot replace the opening focus.");
+                Assert.That(Panel.SampleMenuPointer(zh + Vector2.right * 2f, false, false), Is.True);
+                Assert.That(chinese.color, Is.EqualTo(focus));
+                Assert.That(Panel.Chinese, Is.False);
+                Panel.SampleMenuPointer(zh, true, false);
+                Panel.SampleMenuPointer(zh, false, true);
+                Assert.That(Panel.MenuOpen && Panel.Chinese, Is.True);
+                Assert.That(sheet.Find("Title").GetComponent<UnityEngine.UI.Text>().text, Is.EqualTo("设置"));
+                Panel.HandleDesktopFrame(Eye, false, true);
+                InputState.Change(mouse.position, en);
+                Panel.HandleDesktopFrame(Eye, false, true);
+                Panel.HandleDesktopFrame(Eye, false, false);
+                Assert.That(chinese.color, Is.EqualTo(focus));
+                Panel.SampleMenuPointer(en, true, false);
+                Panel.SampleMenuPointer(en, false, true);
+                Assert.That(Panel.Chinese, Is.False);
+                Assert.That(english.color, Is.EqualTo(focus));
+            }
+            finally
+            {
+                InputSystem.RemoveDevice(mouse);
+                if (priorMouse != null && priorMouse.added) priorMouse.MakeCurrent();
+            }
+            yield return null;
+        }
+
         [UnityTest]
         public IEnumerator SolidWallBlocksBothWalkingAndCloseRangeConversation()
         {
@@ -300,6 +349,32 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
         }
 
         [UnityTest]
+        public IEnumerator UnselectedCharactersScanConsultTheLedgerAndSwishTheTail()
+        {
+            var guard = Actor("guard");
+            var merchant = Actor("merchant");
+            var knight = Actor("knight");
+            var joints = new[] { Joint(guard, "Head"), Joint(guard, "Chest"), Joint(guard, "OffArm"),
+                Joint(merchant, "Head"), Joint(merchant, "OffArm"), Joint(knight, "Head"),
+                Joint(knight, "EarL"), Joint(knight, "EarR"), Joint(knight, "HorseTail") };
+            var start = joints.Select(j => j.localRotation).ToArray();
+            var travel = new float[joints.Length];
+            var minimum = new[] { 14f, 3f, 3f, 9f, 8f, 6f, 3f, 3f, 7f };
+            var jaws = new[] { Joint(guard, "Jaw"), Joint(merchant, "Jaw"), Joint(knight, "Jaw") };
+            var closed = jaws.Select(j => j.localPosition).ToArray();
+            yield return Observe(12.6f, () =>
+            {
+                for (int i = 0; i < joints.Length; i++)
+                    travel[i] = Mathf.Max(travel[i], Quaternion.Angle(start[i], joints[i].localRotation));
+                for (int i = 0; i < jaws.Length; i++)
+                    Assert.That(Vector3.Distance(jaws[i].localPosition, closed[i]), Is.LessThan(.0001f));
+            });
+            for (int i = 0; i < joints.Length; i++)
+                Assert.That(travel[i], Is.GreaterThan(minimum[i]), joints[i].name);
+            Assert.That(Panel.InConversation, Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator ValidatedOfflineDecisionsDriveEachRolesGestureAndPreserveHeldEquipment()
         {
             void Ask(int role, int prompt, NpcAction expected)
@@ -314,10 +389,11 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             var guard = Actor("guard");
             var freeHand = Joint(guard, "GestureArm");
             var shield = Joint(guard, "OffArm");
-            Quaternion handRest = freeHand.localRotation, shieldRest = shield.localRotation;
             float handReach = 0f, shieldTravel = 0f;
             yield return Approach("guard");
             Begin("guard");
+            yield return new WaitForSecondsRealtime(1.35f);
+            Quaternion handRest = freeHand.localRotation, shieldRest = shield.localRotation;
             Ask(0, 0, NpcAction.CheckPass);
             yield return Observe(.7f, () =>
             {
@@ -332,14 +408,14 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             var merchant = Actor("merchant");
             var presentingArm = Joint(merchant, "GestureArm");
             var ledgerArm = Joint(merchant, "OffArm");
-            Quaternion presentingRest = presentingArm.localRotation, ledgerRest = ledgerArm.localRotation;
             float quoteHand = 0f, quoteLedger = 0f, orderHand = 0f, orderLedger = 0f;
             Panel.EndTalk();
             yield return ReturnToSpawn();
             yield return Approach("merchant");
             Begin("merchant");
             // Let the welcome gesture finish so the samples measure the quote and the order.
-            yield return new WaitForSecondsRealtime(1.2f);
+            yield return new WaitForSecondsRealtime(1.4f);
+            Quaternion presentingRest = presentingArm.localRotation, ledgerRest = ledgerArm.localRotation;
             Ask(1, 1, NpcAction.None);
             yield return Observe(.8f, () =>
             {
@@ -347,7 +423,9 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
                 quoteLedger = Mathf.Max(quoteLedger, Quaternion.Angle(ledgerRest, ledgerArm.localRotation));
             });
             Ask(1, 0, NpcAction.RequestPurchase);
-            yield return Observe(.85f, () =>
+            // Allow the raised ledger to travel from the previous quote to the new action.
+            yield return new WaitForSecondsRealtime(.32f);
+            yield return Observe(.53f, () =>
             {
                 orderHand = Mathf.Max(orderHand, Quaternion.Angle(presentingRest, presentingArm.localRotation));
                 orderLedger = Mathf.Max(orderLedger, Quaternion.Angle(ledgerRest, ledgerArm.localRotation));
