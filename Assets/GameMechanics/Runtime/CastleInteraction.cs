@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -21,7 +22,23 @@ namespace MedievalCastle.Mechanics
         private CastleHud hud;
         private NpcActor speaker;
         private CancellationTokenSource pending;
-        private string previousResult;
+        private Transform objectiveTarget;
+        private const int HistoryLimit = 6;
+        private readonly Dictionary<NpcActor, Conversation> conversations =
+            new Dictionary<NpcActor, Conversation>();
+
+        private sealed class Conversation
+        {
+            public readonly List<NpcTurn> Turns = new List<NpcTurn>(HistoryLimit);
+            public string LastResult = "";
+
+            public void Add(NpcTurn turn)
+            {
+                if (Turns.Count == HistoryLimit) Turns.RemoveAt(0);
+                Turns.Add(turn);
+                if (!string.IsNullOrEmpty(turn.result)) LastResult = turn.result;
+            }
+        }
 
         private void Start()
         {
@@ -59,21 +76,36 @@ namespace MedievalCastle.Mechanics
                 }
             }
 
+            UpdateObjectiveDirection();
+            NpcActor candidate = FindNearbyActor();
+            hud.SetInteraction(candidate == null ? "" : $"E   Talk to {candidate.displayName}");
+            if (candidate != null && Input.GetKeyDown(KeyCode.E)) OpenDialogue(candidate);
+        }
+
+        private NpcActor FindNearbyActor()
+        {
             NpcActor candidate = null;
             float nearest = talkRange * talkRange;
             foreach (NpcActor actor in actors)
             {
-                if (actor == null) continue;
+                if (actor == null || !actor.isActiveAndEnabled) continue;
                 float distance = (player.transform.position - actor.transform.position).sqrMagnitude;
-                if (distance < nearest)
+                if (distance < nearest && HasLineOfSight(actor))
                 {
                     nearest = distance;
                     candidate = actor;
                 }
             }
 
-            hud.SetInteraction(candidate == null ? "" : $"E   Talk to {candidate.displayName}");
-            if (candidate != null && Input.GetKeyDown(KeyCode.E)) OpenDialogue(candidate);
+            return candidate;
+        }
+
+        private bool HasLineOfSight(NpcActor actor)
+        {
+            Vector3 eye = player.view != null ? player.view.transform.position : player.transform.position + Vector3.up * 1.65f;
+            Vector3 target = actor.transform.position + Vector3.up * 1.45f;
+            return !Physics.Linecast(eye, target, out RaycastHit hit, Physics.DefaultRaycastLayers,
+                QueryTriggerInteraction.Ignore) || hit.transform.IsChildOf(actor.transform);
         }
 
         private bool WithinRange(Vector3 point, float distance) =>
@@ -84,7 +116,7 @@ namespace MedievalCastle.Mechanics
             speaker = actor;
             player.MovementLocked = true;
             UnlockCursor();
-            hud.Open(actor);
+            hud.Open(actor, game.Snapshot(), ConversationFor(actor).Turns);
         }
 
         private void CloseDialogue()
@@ -101,6 +133,7 @@ namespace MedievalCastle.Mechanics
             if (speaker == null || pending != null || string.IsNullOrWhiteSpace(message)) return;
             message = message.Trim();
             var actor = speaker;
+            Conversation conversation = ConversationFor(actor);
             var request = new NpcRequest
             {
                 requestId = Guid.NewGuid().ToString("N"),
@@ -108,7 +141,8 @@ namespace MedievalCastle.Mechanics
                 role = actor.role.ToString(),
                 message = message,
                 player = game.Snapshot(),
-                previousResult = previousResult
+                previousResult = conversation.LastResult,
+                history = conversation.Turns.ToArray()
             };
 
             using (var cancellation = new CancellationTokenSource())
@@ -137,13 +171,14 @@ namespace MedievalCastle.Mechanics
                         throw new FormatException("Incomplete NPC response.");
 
                     ActionResult result = game.Execute(request.requestId, actor.role, decision.action);
-                    if (result.Success && !string.IsNullOrWhiteSpace(decision.reply))
-                        hud.Append(actor.displayName, decision.reply);
-                    if (!string.IsNullOrEmpty(result.Message))
+                    var turn = new NpcTurn
                     {
-                        previousResult = result.Message;
-                        hud.Append("Game", result.Message);
-                    }
+                        message = message,
+                        reply = result.Success ? decision.reply : null,
+                        result = result.Message
+                    };
+                    conversation.Add(turn);
+                    hud.ShowAnswer(actor.displayName, turn);
                     Refresh();
                 }
                 catch (Exception ex)
@@ -182,7 +217,48 @@ namespace MedievalCastle.Mechanics
         private void Refresh()
         {
             gate.IsOpen = game.GateOpen;
-            hud.Refresh(game.Snapshot());
+            PlayerSnapshot state = game.Snapshot();
+            hud.Refresh(state);
+            if (speaker != null) hud.SetSuggestions(speaker.role, state);
+
+            if (game.Quest == QuestStage.InProgress)
+                objectiveTarget = trainingPoints[game.TrainingProgress];
+            else if (game.Quest == QuestStage.Rewarded)
+                objectiveTarget = null;
+            else
+            {
+                bool hasPass = Array.Exists(state.inventory, item => item.itemId == CastleGame.PassId);
+                NpcRole role = game.GateOpen ? NpcRole.Knight : hasPass ? NpcRole.Guard : NpcRole.Merchant;
+                NpcActor actor = Array.Find(actors, item => item != null && item.isActiveAndEnabled && item.role == role);
+                objectiveTarget = actor != null ? actor.transform : null;
+            }
+            UpdateObjectiveDirection();
+        }
+
+        private Conversation ConversationFor(NpcActor actor)
+        {
+            if (!conversations.TryGetValue(actor, out Conversation conversation))
+            {
+                conversation = new Conversation();
+                conversations.Add(actor, conversation);
+            }
+            return conversation;
+        }
+
+        private void UpdateObjectiveDirection()
+        {
+            if (objectiveTarget == null)
+            {
+                hud.SetDirection("");
+                return;
+            }
+
+            Vector3 direction = objectiveTarget.position - player.transform.position;
+            direction.y = 0;
+            int meters = Mathf.RoundToInt(direction.magnitude);
+            float angle = Vector3.SignedAngle(player.transform.forward, direction, Vector3.up);
+            string hint = Mathf.Abs(angle) > 145 ? "behind" : angle < -25 ? "left" : angle > 25 ? "right" : "ahead";
+            hud.SetDirection(meters <= 2 ? "Nearby" : $"{meters} m · {hint}");
         }
 
         private void OnDestroy()

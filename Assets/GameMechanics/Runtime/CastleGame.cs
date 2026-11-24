@@ -42,6 +42,14 @@ namespace MedievalCastle.Mechanics
     }
 
     [Serializable]
+    public struct NpcTurn
+    {
+        public string message;
+        public string reply;
+        public string result;
+    }
+
+    [Serializable]
     public sealed class NpcRequest
     {
         public string requestId;
@@ -50,6 +58,7 @@ namespace MedievalCastle.Mechanics
         public string message;
         public PlayerSnapshot player;
         public string previousResult;
+        public NpcTurn[] history;
     }
 
     public sealed class ActionResult
@@ -168,6 +177,7 @@ namespace MedievalCastle.Mechanics
 
         private ActionResult AcceptQuest()
         {
+            if (!GateOpen) return Failure("Get your Castle Pass checked by the guard before training.");
             if (Quest != QuestStage.Available) return Failure("This quest has already been accepted.");
             Quest = QuestStage.InProgress;
             return Success($"Training accepted. Visit the {trainingTotal} marked stations in order.");
