@@ -1,6 +1,6 @@
 # 城堡 NPC 对话与决策模块
 
-使用 Unity 2022.3.62f3c1 打开 `Assets/Scenes/Castle_Exterior.unity`。Hierarchy 中的 **Castle NPCs** 组合包含商人、守卫、骑士、对话服务、联调面板和观察位置。三个角色各有独立 GLB、Prefab、碰撞体、待机呼吸和说话动作。可以单独移动或替换任一角色。
+使用 Unity 2022.3.62f3c1 打开 `Assets/Scenes/Castle_Exterior.unity`。Hierarchy 中的 **Castle NPCs** 组合包含商人、守卫、骑士、对话服务、玩家对话界面和出生位置。三个角色各有独立 GLB、Prefab、碰撞体、待机呼吸和说话动作。可以单独移动或替换任一角色。
 
 ![城门前的商人、守卫与骑士](NPC-Cast-Courtyard.png)
 
@@ -12,18 +12,19 @@
 - **守卫**戴羽冠黑盔，一手扶盾。选中时转头颔首，验通行证时伸出空手，视线向玩家手边移动。[守卫三视图](NPC-Guard-Views.png)
 - **骑士**与披甲战马共用一个 Prefab。选中时骑手颔首、战马动耳。发布训练时她望向场中的训练假人，评价进度时朝玩家点头，双手随骑姿握缰。[骑士与战马三视图](NPC-Knight-Views.png)
 
-## 在城门前试一轮
+## 从城门开始
 
-1. 在电脑上点 **Play**。直接点击城门前的角色或右侧角色标签即可看到约一秒的招呼。首次点守卫也会触发。再点预设问句或输入消息。等待回复时角色注视玩家，收到有效台词后才开口。只想看动作可选 **离线演示**。面板支持 English / 中文，**F2** 可收起。头显演示时，先从 Quest 3 进入电脑的 Meta Horizon Link 会话，再在 Unity 点 Play。
-2. 在头显中注视一个角色，按右手 **扳机或 A** 选中。瞄准骑手、马身、马颈或马头都会选中同一个骑士。松开扳机，上下拨右摇杆选择问句，再按扳机或 A 发送。**B** 收起或展开面板。角色位于城门外的同一片空地，站在出生点即可与三人交谈。
-3. 选择 **Merchant**，先询问面包价格，再说 `I would like to buy two loaves of bread.`。展开桌面调试区，对照输入时的状态、原始 JSON 和解析结果。默认面包每个 2 金币，提灯每个 5 金币。一次明确的购买请求会给玩法层一个购买提议。
-4. 在 **Edit demo player state** 把金币改成 3，重复购买两份面包。在面板回传 **Rejected**，或由正式交易系统回传具体失败原因。守卫可用通行证开关检验；骑士可通过切换训练状态检验。面板上的 Accepted / Rejected 只模拟玩法层回执。
+玩家出生在城门外，首先看到 **Walk up to the guard**。走近黑甲守卫，看到角色名与交谈键时按下即可打招呼。收到守卫第一条有效回复后，结束谈话会看到拜访商人和训练区骑士的提示。三个角色都可以自由拜访。
 
-## 在线与离线
+- **Quest Link** 使用左摇杆行走，速度随推杆幅度变化，最大 1.6 米/秒。向右或向左拨右摇杆转向 30°。走到角色或马身约 1.6 米以内，右手按 **A** 打招呼，松开后可用右摇杆上下选择问句、按 **A** 发送。选择 **End conversation** 恢复行走。
+- **电脑** 点击 Game 视图，用 **WASD** 行走、鼠标环顾。走近后按 **E**，可点预设问句或输入自己的问题。打开对话时鼠标会释放，输入文字不会移动角色。
+- **设置** 用右手 **B** 或电脑 **Esc** 打开。首次启动使用英语，选择中文或 English 后会记住偏好。在交谈中打开设置，选 **Resume** 或再次按菜单键可以返回谈话。
 
-Windows 用户环境变量 `DEEPSEEK_API_KEY` 保存这台演示电脑自己的密钥。在 **系统属性 → 环境变量 → 用户变量** 中添加后重新进入 Play。可用 `DEEPSEEK_MODEL` 覆盖默认模型 `deepseek-flash`。Unity 在主线程异步请求 DeepSeek 的 HTTPS Chat Completions 接口，使用 JSON 输出，单轮超时 30 秒。密钥不需要填入场景、Prefab 或交接文件。
+## DeepSeek 与开发测试
 
-首次启动会显示当前提供方。有密钥时选用 **Live · DeepSeek**，缺少密钥时选用 **Offline demo**。可以手动切换。离线预设覆盖双语演示路径，自由上下文生成由在线模型提供。在线请求失败时，界面显示失败和重试入口。供多人共享服务端密钥的正式发行版应由服务端持有共享密钥。 [DeepSeek API 文档](https://api-docs.deepseek.com/api/create-chat-completion/)
+玩家对话使用这台电脑的个人 DeepSeek。设置 Windows 用户环境变量 `DEEPSEEK_API_KEY` 后重新进入 Play。可用 `DEEPSEEK_MODEL` 覆盖默认的 `deepseek-flash`。每次发送会结合角色、玩家状态与历史请求一条回复，超时为 30 秒。缺少密钥、余额不足及网络失败时，玩家可在对话中选择 **Retry** 或 **End conversation**。API 密钥只保存在本机。[DeepSeek API 文档](https://api-docs.deepseek.com/api/create-chat-completion/)
+
+编辑器自动测试可为 `NpcDialogueService` 指定离线提供方或注入受控响应，复现交易、训练、失败与迟到回包。正式游戏由玩法层执行并回报有效提议，NPC 面板只负责对话和手势。
 
 ## 成员 3 如何接入
 
@@ -63,7 +64,13 @@ if (turn.Decision.Action == NpcAction.RequestPurchase)
 - `Assets/CastleNPC/Demo/` 保存桌面与头显的演示入口。正式游戏可停用 `NpcDemoPanel`，继续复用同一对象上的 `NpcDialogueService`。
 - Unity **Window → General → Test Runner** 可运行 EditMode 和 PlayMode 测试。普通离线测试不请求 API。手动设置 `CASTLE_NPC_LIVE_TESTS=1` 和 `DEEPSEEK_API_KEY` 后，按 `NpcLive` 分类运行三个真实在线用例。API 服务可能产生调用费用。
 
-### 城门角色精修验收 · 2026-11-24
+### 步行与近距离交谈验收 · 2026-11-24
+
+- 桌面 Game 视图实测显示英语出生引导，Esc 打开独立语言菜单。PlayMode 从实际出生点使用玩家控制器走到三个角色身边并返回，验证守卫查证、商人询价与下单、骑士训练等代表性回复和手势。键盘输入回归覆盖 E 打招呼、Esc 打开设置和返回原谈话。
+- 模拟 Quest 输入覆盖侧身靠近、马身交谈、长按或重连不重复发送、B 菜单切换语言。实体碰撞验证了墙体隔断、门塔阻挡、抬起的吊闸下方通行以及碰撞体随闸移动。
+- Unity 2022.3.62f3c1 的 74 项 EditMode 和 12 项 PlayMode 测试通过。回复、重试和晚到的响应通过离线及受控提供方验证。三项真实 API 测试跳过。OpenXR 报告未检测到可用头显，Quest Link 的双眼画面与实体手柄尚待真机确认。
+
+### 历史记录 · 城门角色精修验收 · 2026-11-24
 
 - **外观。** 用 Unity 2022.3.62f3c1 在同一场景、灯光与机位各拍摄十张改前和改后照片。近景相机距脸部取景中心一米。侧面核对了守卫的持盾手、商人的账本与袖口、骑手的握缰姿态及裙甲与马鞍的衔接。[全套原图](NPC-Polish) · [守卫对照](NPC-Polish/Guard-Close-Comparison.png) · [商人对照](NPC-Polish/Merchant-Close-Comparison.png) · [骑士对照](NPC-Polish/Knight-Close-Comparison.png)
 - **网格。** 守卫 78,786 个三角形，商人 95,082 个，骑士与坐骑合计 98,276 个。每个 GLB 仍使用一个嵌入式 PBR 材质。源文件可重建三个 GLB，原有模型与 Prefab 的 GUID、角色 ID 和场景站位均保留。

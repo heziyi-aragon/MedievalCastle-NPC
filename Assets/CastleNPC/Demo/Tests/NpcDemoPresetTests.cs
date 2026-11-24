@@ -13,7 +13,7 @@ namespace MedievalCastle.Npc.Demo.Tests
             Assert.That(font, Is.Not.Null, "Install a Windows Chinese display font to show localized dialogue.");
             try
             {
-                foreach (char glyph in "城堡守卫商人骑士通行证提灯训练")
+                foreach (char glyph in "城堡守卫商人骑士通行证提灯训练交谈移动摇杆设置确认重试返回")
                     Assert.That(font.HasCharacter(glyph), Is.True, "Missing glyph U+" + ((int)glyph).ToString("X4"));
             }
             finally { Object.DestroyImmediate(font); }
@@ -21,13 +21,23 @@ namespace MedievalCastle.Npc.Demo.Tests
 
         [TestCase(0, 0, false, "available", NpcAction.CheckPass)]
         [TestCase(0, 0, true, "available", NpcAction.CheckPass)]
+        [TestCase(0, 1, false, "available", NpcAction.None)]
         [TestCase(0, 1, true, "available", NpcAction.None)]
+        [TestCase(0, 2, false, "available", NpcAction.None)]
+        [TestCase(0, 2, true, "available", NpcAction.None)]
         [TestCase(1, 0, true, "available", NpcAction.RequestPurchase)]
         [TestCase(1, 0, false, "available", NpcAction.RequestPurchase)]
         [TestCase(1, 1, false, "available", NpcAction.None)]
+        [TestCase(1, 1, true, "available", NpcAction.None)]
+        [TestCase(1, 2, false, "available", NpcAction.None)]
+        [TestCase(1, 2, true, "available", NpcAction.None)]
         [TestCase(2, 0, false, "available", NpcAction.OfferTraining)]
+        [TestCase(2, 0, true, "available", NpcAction.OfferTraining)]
+        [TestCase(2, 1, false, "active", NpcAction.ReviewTraining)]
         [TestCase(2, 1, true, "ready", NpcAction.ReviewTraining)]
         [TestCase(2, 1, false, "rewarded", NpcAction.None)]
+        [TestCase(2, 2, false, "available", NpcAction.None)]
+        [TestCase(2, 2, true, "available", NpcAction.None)]
         public void VisiblePresetSendsExpectedProposalWithoutApplyingIt(
             int role, int preset, bool chinese, string training, NpcAction expected)
         {
