@@ -52,6 +52,7 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             Assert.That(turn, Is.Not.Null);
             Assert.That(turn.Success && turn.IsOffline, Is.True);
             Assert.That(turn.Decision.Action, Is.EqualTo(NpcAction.OfferTraining));
+            yield return WaitForCaption(() => Frame(a: true));
             var canvas = Panel.transform.Find("NPC speech").GetComponent<Canvas>();
             Assert.That(canvas, Is.Not.Null);
             Assert.That(canvas.renderMode, Is.EqualTo(RenderMode.WorldSpace));
@@ -127,6 +128,7 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             Assert.That(Panel.LastTurn, Is.Not.Null);
             Assert.That(Panel.LastTurn.Success, Is.True);
             var turnId = Panel.LastTurn.TurnId;
+            yield return WaitForCaption(() => Frame());
             Frame(a: true, b: true); Frame(a: true); Frame();
             Assert.That(Panel.MenuOpen, Is.False);
             Assert.That(Panel.SelectedRole, Is.Zero);

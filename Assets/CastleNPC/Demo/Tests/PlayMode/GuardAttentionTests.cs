@@ -33,6 +33,7 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
                 Panel.HandleHeadsetFrame(probe, true, true, false, 0);
                 Assert.That(Panel.SelectedRole, Is.Zero, "Unable to greet guard from " + degrees);
                 Assert.That(Panel.transform.Find("NPC questions").gameObject.activeSelf, Is.True);
+                yield return WaitForCaption(() => Panel.HandleHeadsetFrame(probe, true, false, false, 0));
                 Assert.That(Panel.transform.Find("NPC speech").gameObject.activeSelf, Is.True);
                 yield return new WaitForSecondsRealtime(1.25f);
                 var toEye = probe.transform.position - head.TransformPoint(0f, .168f, .096f);

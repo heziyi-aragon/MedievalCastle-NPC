@@ -154,6 +154,18 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             Assert.That(Panel.SelectedRole, Is.EqualTo(Array.IndexOf(NpcDemoScenario.Roles, role)));
         }
 
+        protected IEnumerator WaitForCaption(Action renderFrame = null)
+        {
+            float deadline = Time.realtimeSinceStartup + 2f;
+            while (Panel.SpokenLine.Length == 0 && Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+                if (!Panel.enabled) Panel.UpdateVoice();
+                renderFrame?.Invoke();
+            }
+            Assert.That(Panel.SpokenLine, Is.Not.Empty, "A playing line must show its subtitle at audible onset.");
+        }
+
         protected static IEnumerator Observe(float seconds, Action sample)
         {
             float until = Time.unscaledTime + seconds;

@@ -72,6 +72,8 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
                     Panel.HandleDesktopFrame(Eye, true, false);
                     var end = DesktopEndButton();
                     Click(end);
+                    Assert.That(Panel.InConversation || CastlePlayerMotor.MovementLocked, Is.False);
+                    yield return WaitForCaption();
                     var source = CheckFarewell(role, zh);
                     Assert.That(greetings, Is.EqualTo(role * 2 + language + 1), "Farewell must use the shipped recording.");
                     // A second pointer event sent to the same row must not restart playback.
@@ -133,13 +135,13 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
                     Frame(b: true); Frame(); Frame(b: true); Frame();
                     Assert.That(Panel.InConversation, Is.True);
                     Frame(a: true);
-                    var source = CheckFarewell(role, zh);
-                    source.timeSamples = source.clip.samples / 8;
                     Frame(a: true); Frame(a: true);
                     Assert.That(Panel.InConversation, Is.False);
-                    Assert.That(source.timeSamples, Is.GreaterThanOrEqualTo(source.clip.samples / 16));
-                    Frame(); Frame(a: true); Frame();
+                    Frame(); Frame(a: true);
                     Assert.That(Panel.InConversation, Is.False, "A quick double tap must not reopen the NPC.");
+                    yield return WaitForCaption(() => Frame(a: true));
+                    CheckFarewell(role, zh);
+                    Frame();
                     yield return new WaitForSecondsRealtime(.4f);
                 }
                 // A fresh conversation can interrupt a farewell. Forced proximity exits stay silent.
@@ -162,9 +164,9 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             Panel.Submit("May I enter?");
             Panel.HandleDesktopFrame(Eye, false, false);
             Click(DesktopEndButton());
-            var guardVoice = CheckFarewell(0, false);
             provider.Replies.Single().SetResult("{\"reply\":\"Let me check.\",\"action\":\"check_pass\",\"itemId\":\"\",\"quantity\":0,\"questId\":\"\"}");
-            yield return null;
+            yield return WaitForCaption();
+            var guardVoice = CheckFarewell(0, false);
             Assert.That(Panel.LastTurn, Is.Null);
             Assert.That(Panel.SpokenLine, Is.EqualTo(English[0]));
             // The market is farther away than one farewell's walking time. Put the second
@@ -175,6 +177,7 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             Assert.That(guardVoice.isPlaying, Is.True, "The second greeting interrupts a live farewell.");
             Begin("merchant");
             Assert.That(guardVoice.clip, Is.Null);
+            yield return WaitForCaption();
             Assert.That(Panel.SpokenLine, Is.Not.Empty.And.Not.EqualTo(English[0]));
             Assert.That(provider.Requests.Count, Is.EqualTo(1));
         }

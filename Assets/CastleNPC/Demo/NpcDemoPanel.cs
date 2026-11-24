@@ -28,7 +28,7 @@ namespace MedievalCastle.Npc.Demo
         private CancellationTokenSource cancellation;
         private NpcTurnResult result;
         private int role = -1, nearRole = -1;
-        private bool chinese, guardWelcomed, exploredAfterGuard, failed;
+        private bool chinese, failed;
         private string sentText = "";
 
         internal bool MenuOpen { get; private set; }
@@ -149,16 +149,10 @@ namespace MedievalCastle.Npc.Demo
 
         internal string ExploreText(bool headset)
         {
-            string next = T("Face the gate. The merchant is on the left. Follow the wall right to the knight.",
-                "面向城门，左边市集找商人，向右沿城墙找骑士。");
-            if (Nearby)
-            {
-                if (obstructedRole == nearRole) return T("Step to one side to talk.", "向旁边走一步再交谈。");
-                string name = RoleName(nearRole);
-                string action = (headset ? "A" : "E") + (chinese ? " · 与" + name + "交谈" : " · Talk to " + name);
-                return guardWelcomed && !exploredAfterGuard && nearRole == 0 ? action + "\n" + next : action;
-            }
-            return guardWelcomed && !exploredAfterGuard ? next : string.Empty;
+            if (!Nearby) return string.Empty;
+            if (obstructedRole == nearRole) return T("Step to one side to talk.", "向旁边走一步再交谈。");
+            string name = RoleName(nearRole);
+            return (headset ? "A" : "E") + (chinese ? " · 与" + name + "交谈" : " · Talk to " + name);
         }
 
         internal void BeginNearby(Transform observer)
@@ -175,7 +169,6 @@ namespace MedievalCastle.Npc.Demo
             viewer = observer;
             actors[role].Greet(viewer);
             StartGreeting(actors[role]);
-            if (guardWelcomed && role != 0) exploredAfterGuard = true;
             CastlePlayerMotor.MovementLocked = true;
             ResetDialoguePresentation();
         }
@@ -186,7 +179,6 @@ namespace MedievalCastle.Npc.Demo
             cancellation = null;
             prior?.Cancel();
             StopVoice();
-            SpokenLine = "";
             if (InConversation && actors[role]) actors[role].EndConversation();
             role = -1;
             viewer = null;
@@ -218,7 +210,6 @@ namespace MedievalCastle.Npc.Demo
             replyIsChinese = chinese;
             replyPage = 0;
             StopVoice();
-            SpokenLine = "";
             var actor = actors[role];
             actor.Listen(viewer);
             try
@@ -227,11 +218,7 @@ namespace MedievalCastle.Npc.Demo
                 if (request != cancellation || request.IsCancellationRequested) return;
                 result = reply;
                 failed = !reply.Success;
-                if (!failed)
-                {
-                    if (role == 0) guardWelcomed = true;
-                    StartReply(actor, reply);
-                }
+                if (!failed) StartReply(actor, reply);
             }
             catch (Exception)
             {

@@ -20,6 +20,7 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
                 var actor = Actor(role);
                 yield return Approach(role);
                 Panel.HandleDesktopFrame(Eye, true, false);
+                yield return WaitForCaption();
                 var choices = (RectTransform)Panel.transform.Find("NPC questions");
                 var caption = (RectTransform)Panel.transform.Find("NPC speech");
                 Canvas.ForceUpdateCanvases();
@@ -79,6 +80,7 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
                     $"rectHit={RectTransformUtility.RectangleContainsScreenPoint(option, pixel, Eye)}");
                 ExecuteEvents.ExecuteHierarchy(hit.gameObject, pointer, ExecuteEvents.pointerClickHandler);
                 Assert.That(Panel.LastTurn?.Success, Is.True);
+                yield return WaitForCaption();
                 Assert.That(caption.Find("Reply").GetComponent<Text>().text, Does.Contain(Panel.LastTurn.Reply.Substring(0, 8)));
                 Panel.EndTalk();
                 Assert.That(choices.gameObject.activeSelf || caption.gameObject.activeSelf, Is.False);

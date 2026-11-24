@@ -89,7 +89,7 @@ namespace MedievalCastle.Npc.Demo
         }
 
         private int PageLength => replyIsChinese ? 48 : 112;
-        private bool HasPages => result != null && result.Success && result.Reply.Length > PageLength;
+        private bool HasPages => SpokenLine.Length > PageLength && result != null && result.Success;
 
         private void SetHudChoices()
         {
@@ -121,7 +121,9 @@ namespace MedievalCastle.Npc.Demo
             switch (choice)
             {
                 case HudChoice.Prompt1: case HudChoice.Prompt2: case HudChoice.Prompt3: Submit(Prompt((int)choice)); break;
-                case HudChoice.NextPage: replyPage = (replyPage + 1) % ((result.Reply.Length + PageLength - 1) / PageLength); break;
+                case HudChoice.NextPage:
+                    if (HasPages) replyPage = (replyPage + 1) % ((SpokenLine.Length + PageLength - 1) / PageLength);
+                    break;
                 case HudChoice.Retry: Retry(); break;
                 case HudChoice.End: EndTalkWithFarewell(); break;
             }

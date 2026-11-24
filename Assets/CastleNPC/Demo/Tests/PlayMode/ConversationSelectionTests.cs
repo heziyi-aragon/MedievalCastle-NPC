@@ -139,11 +139,21 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
                 Assert.That(travel, Is.GreaterThan(.00019f), role + " speaks");
                 Panel.EndTalk();
                 Assert.That(Panel.InConversation, Is.False);
+                Assert.That(Panel.ExploreText(false), Is.EqualTo("E · Talk to " + NpcDemoScenario.RoleName(i, false)));
+                Assert.That(Panel.ExploreText(true), Is.EqualTo("A · Talk to " + NpcDemoScenario.RoleName(i, false)));
                 yield return ReturnToSpawn();
+                Assert.That(Panel.ExploreText(false), Is.Empty);
+                Assert.That(Panel.ExploreText(true), Is.Empty);
                 if (i == 0)
-                    Assert.That(Panel.ExploreText(false), Does.Contain("merchant").And.Contain("knight"));
-                else
-                    Assert.That(Panel.ExploreText(false), Is.Empty);
+                {
+                    Panel.SetLanguage(true);
+                    Assert.That(Panel.ExploreText(true), Is.Empty);
+                    yield return Approach("guard");
+                    Assert.That(Panel.ExploreText(true), Is.EqualTo("A · 与守卫交谈"));
+                    Assert.That(Panel.ExploreText(false), Is.EqualTo("E · 与守卫交谈"));
+                    yield return ReturnToSpawn();
+                    Panel.SetLanguage(false);
+                }
             }
         }
 

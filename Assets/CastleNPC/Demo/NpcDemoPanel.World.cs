@@ -19,7 +19,7 @@ namespace MedievalCastle.Npc.Demo
         private Camera boardCamera, framedCamera;
         private int placedRole = -1, obstructedRole = -1;
         private Vector3 obstructedAt;
-        private bool layoutValid, drawnChinese, drawnXr, drawnPending, drawnFailed;
+        private bool layoutValid, drawnChinese, drawnXr, drawnPending, drawnFailed, drawnVoiceUnavailable;
         private int drawnChoice, drawnPage;
         private string drawnLine;
         private Quaternion priorDesktopRotation;
@@ -190,7 +190,7 @@ namespace MedievalCastle.Npc.Demo
             questions.gameObject.SetActive(true);
             if (!place && layoutValid && drawnChinese == chinese && drawnXr == xr &&
                 drawnPending == Pending && drawnFailed == Failed && drawnChoice == headsetChoice &&
-                drawnPage == replyPage && drawnLine == SpokenLine)
+                drawnPage == replyPage && drawnLine == SpokenLine && drawnVoiceUnavailable == VoiceUnavailable)
             {
                 speech.gameObject.SetActive(!string.IsNullOrEmpty(SpokenLine));
                 FacePlayer(eye);
@@ -199,8 +199,10 @@ namespace MedievalCastle.Npc.Demo
             SetHudChoices();
             headsetChoice = Mathf.Clamp(headsetChoice, 0, choiceCount - 1);
             questionTitle.text = RoleName(role);
-            status.text = Pending ? T("Waiting for a reply…", "正在等待回复…") :
-                (Failed ? T("Unable to get a reply.", "暂时无法取得回复。") : "");
+            if (Pending) status.text = T("Waiting for a reply…", "正在等待回复…");
+            else if (Failed) status.text = T("Unable to get a reply.", "暂时无法取得回复。");
+            else if (VoiceUnavailable) status.text = T("Voice temporarily unavailable.", "语音暂不可用");
+            else status.text = string.Empty;
             bool hasStatus = status.text.Length != 0;
             status.gameObject.SetActive(hasStatus);
             float y = hasStatus ? 87 : 47;
@@ -239,6 +241,7 @@ namespace MedievalCastle.Npc.Demo
             drawnXr = xr;
             drawnPending = Pending;
             drawnFailed = Failed;
+            drawnVoiceUnavailable = VoiceUnavailable;
             drawnChoice = headsetChoice;
             drawnPage = replyPage;
             drawnLine = SpokenLine;
