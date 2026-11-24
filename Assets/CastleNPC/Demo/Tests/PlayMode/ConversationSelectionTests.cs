@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using MedievalCastle.NPC;
@@ -147,12 +148,42 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
         }
 
         [UnityTest]
+        public IEnumerator MarketAndTrainingFlankTheGateAndThePlayerCanWalkUnderTheRaisedGrate()
+        {
+            var landmarks = Castle.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<Transform>()).ToArray();
+            var grate = landmarks.Single(t => t.name == "Portcullis").GetComponent<BoxCollider>();
+            var stall = landmarks.Single(t => t.name == "MarketStall");
+            var dummy = landmarks.Single(t => t.name == "TrainingDummy_B");
+            var merchant = Actor("merchant").transform.position;
+            var knight = Actor("knight").transform.position;
+            var guard = Actor("guard").transform.position;
+
+            Assert.That(Vector3.Dot(merchant - Spawn.position, Spawn.right), Is.LessThan(-5f));
+            Assert.That(Vector3.Dot(knight - Spawn.position, Spawn.right), Is.GreaterThan(5f));
+            Assert.That(Flat(merchant - stall.position).magnitude, Is.LessThan(5f), "Shopkeeper at the market stall");
+            Assert.That(Flat(knight - dummy.position).magnitude, Is.LessThan(6f), "Mounted knight at the training yard entrance");
+            Assert.That(Vector3.Angle(Flat(guard - Spawn.position), Spawn.forward), Is.LessThan(25f),
+                "The guard must be ahead when facing the castle");
+
+            var gate = grate.bounds.center;
+            var inside = gate + Spawn.forward * 1.5f;
+            yield return WalkTo(inside, () => Flat(inside - Eye.transform.position).magnitude < .20f,
+                "the middle of the gateway past the guard and raised grate");
+        }
+
+        [UnityTest]
         public IEnumerator NearestRoleStaysStableAcrossSmallMovementsBesideTwoCharacters()
         {
             var guard = Actor("guard");
             var merchant = Actor("merchant");
             var g = guard.GetComponent<CapsuleCollider>();
             var m = merchant.GetComponent<CapsuleCollider>();
+            // The additive test scene is discarded after this case. Recreate two adjacent NPCs
+            // on the open approach without depending on their authored market and gate stations.
+            var midpoint = Spawn.position - Spawn.forward * 2f;
+            guard.transform.position = midpoint - Spawn.right * .95f;
+            merchant.transform.position = midpoint + Spawn.right * .95f;
+            Physics.SyncTransforms();
             var probe = new GameObject("Proximity sample near the guard and merchant");
             SceneManager.MoveGameObjectToScene(probe, Castle);
             // Stand in front of the pair, then cross their equal-distance line in one-centimetre steps.
@@ -442,8 +473,11 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             var head = Joint(knight, "Head");
             var reinArm = Joint(knight, "GestureArm");
             var torso = Joint(knight, "Chest");
-            var yard = Castle.GetRootGameObjects().SelectMany(x => x.GetComponentsInChildren<Transform>())
-                .Single(t => t.name == "TrainingDummy_A");
+            // Read the target assigned in Castle_Exterior, including on player test builds.
+            var yard = typeof(NpcDemoPanel).GetField("trainingTarget", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.GetValue(Panel) as Transform;
+            Assert.That(yard, Is.Not.Null, "The knight needs a training target assigned in the scene");
+            Assert.That(yard.name, Is.EqualTo("TrainingDummy_B"));
             Quaternion reinRest = reinArm.rotation, torsoRest = torso.rotation;
             float reinTravel = 0f, torsoTravel = 0f;
             Vector3 offerHeading = Vector3.zero, reviewHeading = Vector3.zero;
@@ -470,9 +504,15 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
 
             var toYard = Flat(yard.position - head.position);
             var toPlayer = Flat(Eye.transform.position - head.position);
-            Assert.That(Vector3.Angle(Flat(offerHeading), toYard) + 8f,
+            float offerError = Vector3.Angle(Flat(offerHeading), toYard);
+            float reviewError = Vector3.Angle(Flat(reviewHeading), toPlayer);
+            // The visible face is slightly offset from the head bone's forward axis.
+            const float maxGazeError = 20f;
+            Assert.That(offerError, Is.LessThanOrEqualTo(maxGazeError), "Point out the actual training dummy.");
+            Assert.That(reviewError, Is.LessThanOrEqualTo(maxGazeError), "Face the player arriving from the gate.");
+            Assert.That(offerError + 8f,
                 Is.LessThan(Vector3.Angle(Flat(reviewHeading), toYard)), "The offer should look towards the training yard.");
-            Assert.That(Vector3.Angle(Flat(reviewHeading), toPlayer) + 8f,
+            Assert.That(reviewError + 8f,
                 Is.LessThan(Vector3.Angle(Flat(offerHeading), toPlayer)), "The review should face the player.");
             Assert.That(reinTravel, Is.LessThan(5f), "The gesturing arm should keep hold of the reins.");
             Assert.That(torsoTravel, Is.LessThan(5f), "The torso carries the second hand on the reins.");

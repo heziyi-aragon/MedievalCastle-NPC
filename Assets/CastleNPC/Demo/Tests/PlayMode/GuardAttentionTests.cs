@@ -21,8 +21,7 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             foreach (float degrees in new[] { 0f, 90f, 180f, -90f })
             {
                 var side = Quaternion.AngleAxis(degrees, Vector3.up) * front;
-                // On the horse side the knight can be nearer during the approach.
-                // Continue until the production proximity prompt actually names the guard.
+                // Sample the approach until the production proximity prompt names the guard.
                 for (int step = 0; step <= 8; step++)
                 {
                     probe.transform.position = guard.transform.position + side * (1.22f - .077f * step) + Vector3.up * 1.75f;

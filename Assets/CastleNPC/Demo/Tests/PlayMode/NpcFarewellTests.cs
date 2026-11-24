@@ -126,7 +126,10 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
                     Panel.SetLanguage(zh);
                     Frame(); Frame(a: true); Frame();
                     Assert.That(Panel.InConversation, Is.True);
-                    Frame(stick: 1f); Frame(); // Wrap up from the first question to End.
+                    Assert.That(Panel.SelectedRole, Is.EqualTo(role));
+                    Frame(a: true); Frame();
+                    Assert.That(Panel.LastTurn?.Success, Is.True, id + " answers the controller-selected question");
+                    Frame(stick: 1f); Frame(); // Wrap up from the first row to End.
                     Frame(b: true); Frame(); Frame(b: true); Frame();
                     Assert.That(Panel.InConversation, Is.True);
                     Frame(a: true);
@@ -164,7 +167,12 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             yield return null;
             Assert.That(Panel.LastTurn, Is.Null);
             Assert.That(Panel.SpokenLine, Is.EqualTo(English[0]));
-            yield return Approach("merchant");
+            // The market is farther away than one farewell's walking time. Put the second
+            // speaker on the open approach for this interruption race in the additive test scene.
+            var feet = Motor.transform.position;
+            Actor("merchant").transform.position = feet + Flat(Spawn.position - feet).normalized * 1.15f;
+            Physics.SyncTransforms();
+            Assert.That(guardVoice.isPlaying, Is.True, "The second greeting interrupts a live farewell.");
             Begin("merchant");
             Assert.That(guardVoice.clip, Is.Null);
             Assert.That(Panel.SpokenLine, Is.Not.Empty.And.Not.EqualTo(English[0]));

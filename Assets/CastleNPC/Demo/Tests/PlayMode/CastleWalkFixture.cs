@@ -87,7 +87,10 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             Physics.SyncTransforms();
             Panel.UpdateNearby(Eye.transform);
             // Every step goes through the same CharacterController.Move path as desktop/XR input.
-            for (int i = 0; i < 420 && !arrived(); i++)
+            // Allow time for acceleration, uneven ground and render frames between input samples.
+            float distance = Flat(goal - Eye.transform.position).magnitude;
+            int stepLimit = Mathf.CeilToInt((distance / 1.6f * 1.7f + 2f) * 60f);
+            for (int i = 0; i < stepLimit && !arrived(); i++)
             {
                 StepToward(goal);
                 if (i % 8 == 7) yield return null;
