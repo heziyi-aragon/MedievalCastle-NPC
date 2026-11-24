@@ -48,18 +48,23 @@ namespace MedievalCastle.Npc.Demo
             bool toggle = connected && handConnected && backButton && !backHeld;
             handConnected = connected;
             primaryHeld = select;
-            if (toggle) { headsetOpen = !headsetOpen; pressed = false; }
+            if (toggle)
+            {
+                headsetOpen = !headsetOpen;
+                if (!headsetOpen && !Pending) EndSelection();
+                pressed = false;
+            }
             backHeld = backButton;
             var head = headsetCamera.transform;
             CastleNpcCharacter actor = null;
             if (Physics.Raycast(head.position, head.forward, out var hit, 18f, ~0, QueryTriggerInteraction.Collide))
                 actor = hit.collider.GetComponentInParent<CastleNpcCharacter>();
             int target = actor == null ? -1 : Array.IndexOf(NpcDemoScenario.Roles, actor.RoleId);
-            bool aimingAtOther = target >= 0 && target != role;
+            bool aimingAtOther = target >= 0 && target != SelectedRole;
             bool picked = pressed && !Pending && target >= 0 && (aimingAtOther || !headsetOpen);
             if (picked)
             {
-                SelectRole(target);
+                SelectRole(target, head);
                 headsetOpen = true;
                 aimingAtOther = false;
                 pressed = false;
@@ -77,12 +82,17 @@ namespace MedievalCastle.Npc.Demo
             }
             if (Mathf.Abs(stickY) < .3f) stickHeld = false;
             var choice = choices[headsetChoice];
-            if (pressed) Activate(choice);
+            if (pressed && roleSelected && !(Pending && aimingAtOther)) Activate(choice);
             if (Time.unscaledTime < nextDraw && target == lastTarget && !pressed && !navigate && !toggle && !picked) return;
             lastTarget = target;
             nextDraw = Time.unscaledTime + .08f;
             title.text = RoleName(role) + "   /   " + ModeName;
-            if (aimingAtOther && !Pending)
+            if (!roleSelected && target < 0)
+            {
+                choiceText.text = T("Select a character", "请选择角色");
+                hint.text = T("Look at a character · Trigger / A to select", "注视角色 · 扳机 / A 选择角色");
+            }
+            else if (aimingAtOther && !Pending)
             {
                 choiceText.text = T("Talk to ", "对话 · ") + RoleName(target);
                 hint.text = T("Look at a character · Trigger / A to select", "注视角色 · 扳机 / A 选择角色");
@@ -164,7 +174,7 @@ namespace MedievalCastle.Npc.Demo
                 case Choice.Training: SetStatus((Array.IndexOf(NpcDemoScenario.Statuses, state.trainingStatus)+1) % NpcDemoScenario.Statuses.Length); break;
                 case Choice.Language: chinese = !chinese; break;
                 case Choice.Mode: ToggleMode(); break;
-                case Choice.Role: SelectRole((role+1) % NpcDemoScenario.Roles.Length); break;
+                case Choice.Role: SelectRole((role+1) % NpcDemoScenario.Roles.Length, headsetCamera.transform); break;
             }
         }
 

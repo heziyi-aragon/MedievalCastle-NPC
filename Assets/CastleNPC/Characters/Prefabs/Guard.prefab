@@ -51,6 +51,7 @@ MonoBehaviour:
   head: {fileID: 5453715820829897102}
   jaw: {fileID: 8723792893497168555}
   gestureArm: {fileID: 6648773970925480398}
+  offArm: {fileID: 7659284603428595973}
   horseChest: {fileID: 0}
   earL: {fileID: 0}
   earR: {fileID: 0}
@@ -161,6 +162,12 @@ Transform:
 --- !u!4 &6648773970925480398 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -122559641874160919, guid: bf2e2bbaa2ca45a3a955d637605d58b9,
+    type: 3}
+  m_PrefabInstance: {fileID: 2452671880481131303}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &7659284603428595973 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -4016477696324263390, guid: bf2e2bbaa2ca45a3a955d637605d58b9,
     type: 3}
   m_PrefabInstance: {fileID: 2452671880481131303}
   m_PrefabAsset: {fileID: 0}

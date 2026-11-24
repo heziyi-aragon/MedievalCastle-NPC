@@ -109,6 +109,7 @@ MonoBehaviour:
   head: {fileID: 3589135883907834460}
   jaw: {fileID: 5732381382194591606}
   gestureArm: {fileID: 8647789104329655260}
+  offArm: {fileID: 0}
   horseChest: {fileID: 3759665806270887217}
   earL: {fileID: 5287334684827541595}
   earR: {fileID: 7841628549319001380}

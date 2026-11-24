@@ -73,9 +73,15 @@ namespace MedievalCastle.Npc.Demo
 
         private void OnGUI()
         {
+            var ev = Event.current;
+            if (!XRSettings.isDeviceActive && ev.type == EventType.MouseDown && ev.button == 0)
+            {
+                var point = new Vector2(ev.mousePosition.x, Screen.height - ev.mousePosition.y);
+                if (SelectAtScreenPoint(desktopCamera, point)) ev.Use();
+            }
             if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.F2)
             {
-                desktopOpen = !desktopOpen;
+                SetDesktopOpen(!desktopOpen);
                 Event.current.Use();
             }
             var previous = GUI.skin;
@@ -128,7 +134,7 @@ namespace MedievalCastle.Npc.Demo
                 GUILayout.BeginHorizontal();
                 GUILayout.Label(T("Castle dialogue", "城堡对话"), heading, GUILayout.MinWidth(0), GUILayout.ExpandWidth(true));
                 if (GUILayout.Button(chinese ? "English" : "中文", GUILayout.Width(67), GUILayout.MinHeight(28))) chinese = !chinese;
-                if (GUILayout.Button(T("Hide", "收起"), GUILayout.Width(54), GUILayout.MinHeight(28))) desktopOpen = false;
+                if (GUILayout.Button(T("Hide", "收起"), GUILayout.Width(54), GUILayout.MinHeight(28))) SetDesktopOpen(false);
                 GUILayout.EndHorizontal();
                 desktopScroll = GUILayout.BeginScrollView(new Vector2(0, desktopScroll.y), false, true,
                     GUIStyle.none, desktopSkin.verticalScrollbar);
@@ -143,11 +149,31 @@ namespace MedievalCastle.Npc.Demo
             finally { GUI.skin = previous; GUI.matrix = previousMatrix; }
         }
 
+        private void SetDesktopOpen(bool value)
+        {
+            desktopOpen = value;
+            if (!value && !Pending) EndSelection();
+        }
+
+        internal bool SelectAtScreenPoint(Camera camera, Vector2 screenPoint)
+        {
+            if (Pending || !camera || !camera.pixelRect.Contains(screenPoint)) return false;
+            float scale = Mathf.Clamp(Screen.width / 970f, .8f, 1f);
+            var guiPoint = new Vector2(screenPoint.x, Screen.height - screenPoint.y) / scale;
+            if (!desktopOpen && new Rect(Screen.width / scale - 127, 12, 115, 30).Contains(guiPoint)) return false;
+            if (!Physics.Raycast(camera.ScreenPointToRay(screenPoint), out var hit, 18f, ~0, QueryTriggerInteraction.Collide)) return false;
+            var actor = hit.collider.GetComponentInParent<MedievalCastle.NPC.CastleNpcCharacter>();
+            if (!actor || !characters.TryGetValue(actor.RoleId, out var registered) || registered != actor) return false;
+            SelectRole(Array.IndexOf(NpcDemoScenario.Roles, actor.RoleId), camera.transform);
+            desktopOpen = true;
+            return true;
+        }
+
         private void DrawConversation()
         {
             GUI.enabled = !Pending;
-            int next = GUILayout.Toolbar(role, new[] { RoleName(0), RoleName(1), RoleName(2) }, tabs, GUILayout.MinHeight(28));
-            SelectRole(next);
+            int next = GUILayout.Toolbar(SelectedRole, new[] { RoleName(0), RoleName(1), RoleName(2) }, tabs, GUILayout.MinHeight(28));
+            if (next != SelectedRole) SelectRole(next);
             int mode = service.Mode == NpcProviderMode.Offline ? 1 : 0;
             int nextMode = GUILayout.Toolbar(mode, new[] { T("Live · DeepSeek", "在线 · DeepSeek"), T("Offline demo", "离线演示") }, tabs, GUILayout.MinHeight(28));
             if (nextMode != mode) ToggleMode();

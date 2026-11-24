@@ -19,6 +19,7 @@ namespace MedievalCastle.NPC.Editor
 
         private static void BuildCharacter(string name)
         {
+            var path = $"{Folder}/Prefabs/{name}.prefab";
             var model = AssetDatabase.LoadAssetAtPath<GameObject>($"{Folder}/Models/{name}.glb");
             if (model == null)
                 throw new InvalidOperationException($"The {name} model has not been imported.");
@@ -34,6 +35,8 @@ namespace MedievalCastle.NPC.Editor
                 Transform Bone(string id) => bones.Single(t => t.name == id);
                 foreach (var entry in new[] { ("chest", "Chest"), ("head", "Head"), ("jaw", "Jaw"), ("gestureArm", "GestureArm") })
                     settings.FindProperty(entry.Item1).objectReferenceValue = Bone(entry.Item2);
+                if (name != "Knight")
+                    settings.FindProperty("offArm").objectReferenceValue = Bone("OffArm");
                 var body = root.AddComponent<CapsuleCollider>();
                 var headPosition = Bone("Head").position;
                 if (name == "Knight")
@@ -53,12 +56,14 @@ namespace MedievalCastle.NPC.Editor
                 }
                 else
                 {
-                    body.radius = .32f;
-                    body.height = visual.GetComponentsInChildren<Renderer>().Max(r => r.bounds.max.y);
-                    body.center = Vector3.up * (body.height / 2f);
+                    var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                    var priorBody = existing ? existing.GetComponent<CapsuleCollider>() : null;
+                    // Decorative changes, such as a taller plume, keep the scene's authored hit target.
+                    body.radius = priorBody ? priorBody.radius : .32f;
+                    body.height = priorBody ? priorBody.height : visual.GetComponentsInChildren<Renderer>().Max(r => r.bounds.max.y);
+                    body.center = priorBody ? priorBody.center : Vector3.up * (body.height / 2f);
                 }
                 settings.ApplyModifiedPropertiesWithoutUndo();
-                var path = $"{Folder}/Prefabs/{name}.prefab";
                 PrefabUtility.SaveAsPrefabAsset(root, path, out var saved);
                 if (!saved)
                     throw new InvalidOperationException($"Unity could not save {path}.");

@@ -1,1 +1,5 @@
-{ "name": "MedievalCastle.NPC.Characters", "rootNamespace": "MedievalCastle.NPC" }
+{
+  "name": "MedievalCastle.NPC.Characters",
+  "rootNamespace": "MedievalCastle.NPC",
+  "references": ["CastleNPC.Dialogue"]
+}

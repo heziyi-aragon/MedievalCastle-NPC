@@ -21,6 +21,10 @@ namespace MedievalCastle.Npc.Demo
         internal NpcTurnResult LastTurn => result;
         private CancellationTokenSource cancellation;
         private CastleNpcCharacter speaker;
+        [SerializeField] private Transform trainingTarget;
+        private Transform viewer;
+        private bool roleSelected;
+        internal int SelectedRole => roleSelected ? role : -1;
         private float speakingUntil;
         private int role;
         private bool chinese, hasApiKey;
@@ -75,6 +79,7 @@ namespace MedievalCastle.Npc.Demo
             cancellation = null;
             previous?.Cancel();
             StopSpeaking();
+            EndSelection();
             if (headsetCanvas != null) headsetCanvas.gameObject.SetActive(false);
         }
 
@@ -93,9 +98,28 @@ namespace MedievalCastle.Npc.Demo
 
         internal void SelectRole(int next)
         {
-            if (Pending || role == next) return;
+            var camera = Camera.main;
+            SelectRole(next, camera ? camera.transform : null);
+        }
+
+        private void EndSelection()
+        {
+            if (roleSelected && characters.TryGetValue(NpcDemoScenario.Roles[role], out var actor) && actor)
+                actor.EndConversation();
+            roleSelected = false;
+            viewer = null;
+        }
+
+        private void SelectRole(int next, Transform observer)
+        {
+            if (Pending || next < 0 || next >= NpcDemoScenario.Roles.Length || SelectedRole == next) return;
+            EndSelection();
             ClearDisplayedTurn();
             role = next;
+            roleSelected = true;
+            viewer = observer;
+            if (characters.TryGetValue(NpcDemoScenario.Roles[role], out var actor) && actor)
+                actor.Greet(viewer);
             typed = "";
             headsetChoice = 1;
             desktopScroll = Vector2.zero;
@@ -120,6 +144,7 @@ namespace MedievalCastle.Npc.Demo
         internal void Submit(string text)
         {
             if (Pending || string.IsNullOrWhiteSpace(text)) return;
+            if (!roleSelected) SelectRole(role);
             sentText = text.Trim();
             sentRole = role;
             sentLanguage = chinese ? "zh" : "en";
@@ -137,16 +162,21 @@ namespace MedievalCastle.Npc.Demo
             result = null;
             replyPage = 0;
             StopSpeaking();
+            characters.TryGetValue(NpcDemoScenario.Roles[sentRole], out var actor);
+            if (actor) actor.Listen(viewer);
             try
             {
                 var reply = await service.SendTurnAsync(NpcDemoScenario.Roles[sentRole], sentText,
                     JsonUtility.FromJson<NpcPlayerState>(sentState), sentLanguage, request.Token);
                 if (request != cancellation) return;
+                request.Token.ThrowIfCancellationRequested();
                 result = reply;
                 if (!reply.Success) error = reply.Error;
-                else if (characters.TryGetValue(NpcDemoScenario.Roles[sentRole], out speaker) && speaker != null)
+                else if (actor)
                 {
-                    speaker.SetSpeaking(true);
+                    speaker = actor;
+                    Vector3? target = trainingTarget ? (Vector3?)(trainingTarget.position + Vector3.up) : null;
+                    speaker.Speak(reply.Decision.Action, viewer, target);
                     speakingUntil = Time.unscaledTime + Mathf.Clamp(reply.Reply.Length * 0.05f, 1.3f, 5f);
                 }
             }
@@ -160,7 +190,11 @@ namespace MedievalCastle.Npc.Demo
             }
             finally
             {
-                if (request == cancellation) cancellation = null;
+                if (request == cancellation)
+                {
+                    if (actor && speaker != actor) actor.EndConversation();
+                    cancellation = null;
+                }
                 request.Dispose();
             }
         }
