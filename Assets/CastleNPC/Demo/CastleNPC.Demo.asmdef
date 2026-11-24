@@ -1,0 +1,5 @@
+{
+  "name": "CastleNPC.Demo",
+  "rootNamespace": "MedievalCastle.Npc.Demo",
+  "references": ["CastleNPC.Dialogue", "MedievalCastle.NPC.Characters", "UnityEngine.UI"]
+}
