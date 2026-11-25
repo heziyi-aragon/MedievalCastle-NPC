@@ -11,6 +11,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace MedievalCastle.Npc.Demo.PlayModeTests
 {
@@ -158,10 +159,9 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
         }
 
         [UnityTest]
-        public IEnumerator MarketAndTrainingFlankTheGateAndThePlayerCanWalkUnderTheRaisedGrate()
+        public IEnumerator MarketAndTrainingFlankTheGateAndThePlayerCanReachTheRider()
         {
             var landmarks = Castle.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<Transform>()).ToArray();
-            var grate = landmarks.Single(t => t.name == "Portcullis").GetComponent<BoxCollider>();
             var stall = landmarks.Single(t => t.name == "MarketStall");
             var yard = landmarks.Single(t => t.name == "TrainingYard");
             var merchant = Actor("merchant").transform.position;
@@ -183,16 +183,209 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             Assert.That(Vector3.Angle(Flat(guard - Spawn.position), Spawn.forward), Is.LessThan(25f),
                 "The guard must be ahead when facing the castle");
 
-            var gate = grate.bounds.center;
-            var inside = gate + Spawn.forward * 1.5f;
-            yield return WalkTo(inside, () => Flat(inside - Eye.transform.position).magnitude < .20f,
-                "the middle of the gateway past the guard and raised grate");
             yield return Approach("knight");
             Assert.That(Motor.GetComponent<CharacterController>().bounds.max.z, Is.LessThan(outsideEdge),
                 "A player arriving from the gate can speak from outside the fence.");
             Panel.HandleDesktopFrame(Eye, true, false);
             Assert.That(Panel.SelectedRole, Is.EqualTo(2));
             Assert.That(Panel.transform.Find("NPC questions").gameObject.activeSelf, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator PortcullisClearsThePassageOnlyAfterTheGuardVerifiesThePass()
+        {
+            var grate = Castle.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<Transform>())
+                .Single(t => t.name == "Portcullis").GetComponent<BoxCollider>();
+            var mesh = grate.GetComponent<Renderer>();
+            Physics.SyncTransforms();
+            Vector3 gateCenter = grate.bounds.center;
+            Vector3 outside = gateCenter - Spawn.forward;
+            Vector3 inside = gateCenter + Spawn.forward * 1.5f;
+            Vector3 closedPosition = grate.transform.localPosition;
+            float closedBottom = grate.bounds.min.y;
+            float closedMeshBottom = mesh.bounds.min.y;
+
+            yield return WalkTo(outside, () => Flat(outside - Eye.transform.position).magnitude < .20f, "closed castle gate");
+            for (int frame = 0; frame < 90; frame++)
+            {
+                StepToward(inside);
+                if (frame % 8 == 7) yield return null;
+            }
+            Assert.That(Vector3.Dot(Eye.transform.position - gateCenter, Spawn.forward), Is.LessThan(-.12f),
+                "The closed gate stops the player outside the passage.");
+            yield return ReturnToSpawn();
+
+            string entryRequest = NpcDemoScenario.Prompt(0, 0, false);
+            yield return Approach("guard");
+            Begin("guard");
+            Panel.Submit(entryRequest);
+            Assert.That(Panel.LastTurn.Decision.Action, Is.EqualTo(NpcAction.CheckPass));
+            yield return Observe(.15f, () => Assert.That(grate.transform.localPosition, Is.EqualTo(closedPosition)));
+            Panel.EndTalk();
+            yield return ReturnToSpawn();
+
+            yield return Approach("merchant");
+            Panel.HandleDesktopFrame(Eye, true, false);
+            Assert.That(Panel.SelectedRole, Is.EqualTo(1));
+            Panel.transform.Find("NPC questions/Option 1").GetComponent<Button>().onClick.Invoke();
+            Assert.That(Panel.LastTurn.Decision.Action, Is.EqualTo(NpcAction.RequestPurchase));
+            var confirmation = Panel.transform.Find("NPC questions/Option 1").GetComponent<Button>();
+            Assert.That(confirmation.GetComponentInChildren<Text>().text, Is.EqualTo("Confirm purchase"));
+            confirmation.onClick.Invoke();
+            yield return Observe(.15f, () => Assert.That(grate.transform.localPosition, Is.EqualTo(closedPosition)));
+            Panel.EndTalk();
+            yield return ReturnToSpawn();
+
+            yield return Approach("guard");
+            Begin("guard");
+            Panel.Submit(entryRequest);
+            Assert.That(Panel.LastTurn.Decision.Action, Is.EqualTo(NpcAction.CheckPass));
+            Panel.EndTalk();
+            float deadline = Time.realtimeSinceStartup + 3f;
+            do
+            {
+                yield return null;
+                Physics.SyncTransforms();
+            } while (grate.bounds.min.y < 1.95f && Time.realtimeSinceStartup < deadline);
+            Assert.That(grate.bounds.min.y, Is.GreaterThanOrEqualTo(1.95f), "A verified pass raises the grate.");
+            Assert.That(mesh.bounds.min.y - closedMeshBottom, Is.EqualTo(grate.bounds.min.y - closedBottom).Within(.01f),
+                "The collider rises the same distance as the visible grate.");
+            yield return ReturnToSpawn();
+            yield return WalkTo(inside, () => Flat(inside - Eye.transform.position).magnitude < .20f, "opened gateway");
+        }
+
+        [UnityTest]
+        public IEnumerator DesktopHudUsesTheViewHeadingAndHidesDuringSettings()
+        {
+            var heading = Flat(Actor("merchant").transform.position - Eye.transform.position);
+            Eye.transform.rotation = Quaternion.LookRotation(heading);
+            Panel.HandleDesktopFrame(Eye, false, false);
+            yield return new WaitForSecondsRealtime(.12f);
+            var hud = Panel.transform.Find("Castle gameplay HUD");
+            var direction = hud.Find("Objective/Direction").GetComponent<Text>();
+            Assert.That(direction.text, Does.Contain("ahead"));
+            Eye.transform.rotation = Quaternion.LookRotation(-heading);
+            yield return new WaitForSecondsRealtime(.12f);
+            Assert.That(direction.text, Does.Contain("behind"));
+
+            Panel.HandleDesktopFrame(Eye, false, true);
+            Assert.That(hud.gameObject.activeSelf, Is.False);
+            Panel.SetLanguage(true);
+            Panel.HandleDesktopFrame(Eye, false, true);
+            Assert.That(hud.gameObject.activeSelf, Is.True);
+            Assert.That(direction.text, Does.Contain("后方"));
+            Assert.That(hud.Find("Objective/Current objective").GetComponent<Text>().text, Is.EqualTo("向商人购买通行证"));
+        }
+
+        [UnityTest]
+        public IEnumerator MerchantShowsTheOrderAndOnlyChargesOnConfirmation()
+        {
+            yield return Approach("merchant");
+            Panel.HandleDesktopFrame(Eye, true, false);
+            Assert.That(Panel.SelectedRole, Is.EqualTo(1));
+            var card = Panel.transform.Find("NPC questions");
+            var status = card.Find("Status").GetComponent<Text>();
+            var first = card.Find("Option 1").GetComponent<Button>();
+            var second = card.Find("Option 2").GetComponent<Button>();
+            first.onClick.Invoke();
+            Assert.That(status.text, Does.Contain("Castle Pass × 1").And.Contain("Total 10 coins"));
+            Assert.That(first.GetComponentInChildren<Text>().text, Is.EqualTo("Confirm purchase"));
+            Assert.That(second.GetComponentInChildren<Text>().text, Is.EqualTo("Cancel purchase"));
+            second.onClick.Invoke();
+            Assert.That(status.text, Does.Contain("Order canceled"));
+
+            Panel.Submit("Buy two herbal tonics.");
+            Panel.HandleDesktopFrame(Eye, false, false);
+            Assert.That(status.text, Does.Contain("Herbal Tonic × 2").And.Contain("8 coins each").And.Contain("Total 16 coins"));
+            Assert.That(card.Find("Free question").gameObject.activeSelf, Is.False);
+            first.onClick.Invoke();
+            Assert.That(status.text, Does.Contain("Bought 2 × Herbal Tonic").And.Contain("Balance: 14 coins"));
+            Assert.That(card.Find("Free question").gameObject.activeSelf, Is.True);
+            Panel.EndTalk();
+            Panel.HandleDesktopFrame(Eye, false, false);
+            var hud = Panel.transform.Find("Castle gameplay HUD");
+            Assert.That(hud.Find("Inventory/Wallet").GetComponent<Text>().text, Does.Contain("14 coins"));
+            Assert.That(hud.Find("Inventory/Backpack").GetComponent<Text>().text, Is.EqualTo("Herbal Tonic ×2"));
+            Assert.That(hud.Find("Objective/Current objective").GetComponent<Text>().text, Does.Contain("merchant"));
+        }
+
+        [UnityTest]
+        public IEnumerator KnightDrillFollowsTheSceneMarkersAndCanBeClaimedWithTheHeadset()
+        {
+            var hud = Panel.transform.Find("Castle gameplay HUD");
+            string Hud(string path) => hud.Find(path).GetComponent<Text>().text;
+            yield return Approach("merchant");
+            Panel.HandleDesktopFrame(Eye, true, false);
+            var card = Panel.transform.Find("NPC questions");
+            var first = card.Find("Option 1").GetComponent<Button>();
+            var third = card.Find("Option 3").GetComponentInChildren<Text>();
+            var status = card.Find("Status").GetComponent<Text>();
+            first.onClick.Invoke();
+            first.onClick.Invoke();
+            Panel.EndTalk();
+            Panel.HandleDesktopFrame(Eye, false, false);
+            Assert.That(Hud("Inventory/Backpack"), Is.EqualTo("Castle Pass ×1"));
+            Assert.That(Hud("Objective/Current objective"), Does.Contain("guard"));
+            yield return ReturnToSpawn();
+
+            yield return Approach("guard");
+            Begin("guard");
+            Panel.Submit(NpcDemoScenario.Prompt(0, 0, false));
+            Panel.EndTalk();
+            Panel.HandleDesktopFrame(Eye, false, false);
+            Assert.That(Hud("Objective/Current objective"), Does.Contain("knight"));
+
+            yield return Approach("knight");
+            Panel.HandleDesktopFrame(Eye, true, false);
+            Assert.That(Panel.SelectedRole, Is.EqualTo(2));
+            first.onClick.Invoke();
+            Assert.That(status.text, Does.Contain("0/3").And.Contain("marker 1"));
+            Assert.That(third.text, Is.Not.EqualTo("Confirm reward"));
+            Panel.EndTalk();
+            yield return null;
+            Assert.That(Hud("Objective/Current objective"), Does.Contain("0/3").And.Contain("marker 1"));
+
+            var points = Castle.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<Transform>())
+                .Where(t => t.name.StartsWith("Training Marker ")).OrderBy(t => t.name).ToArray();
+            Assert.That(points.Length, Is.EqualTo(3));
+            var marker = Panel.transform.Find("Training marker");
+            var number = marker.GetComponentInChildren<Text>();
+            IEnumerator WalkNear(Vector3 goal) =>
+                WalkTo(goal, () => Flat(goal - Eye.transform.position).magnitude < .32f, goal.ToString());
+
+            yield return WalkNear(new Vector3(-7f, 0, 27.2f));
+            yield return WalkNear(new Vector3(-7f, 0, 34.5f));
+            yield return WalkNear(points[1].position);
+            yield return null;
+            Assert.That(number.text, Is.EqualTo("1"), "Reaching marker 2 first cannot count.");
+
+            for (int i = 0; i < points.Length; i++)
+            {
+                yield return WalkNear(points[i].position);
+                yield return new WaitForSecondsRealtime(.12f);
+                if (i + 1 < points.Length) Assert.That(number.text, Is.EqualTo((i + 2).ToString()));
+            }
+            Assert.That(marker.gameObject.activeSelf, Is.False);
+            Assert.That(Hud("Objective/Current objective"), Does.Contain("3/3").And.Contain("Return to the knight"));
+
+            yield return WalkNear(new Vector3(-7f, 0, 34.5f));
+            yield return WalkNear(new Vector3(-7f, 0, 27.2f));
+            yield return Approach("knight");
+            Begin("knight");
+            Panel.HandleHeadsetFrame(Eye, true, false, false, 0);
+            Assert.That(third.text, Is.EqualTo("Confirm reward"));
+            Panel.HandleHeadsetFrame(Eye, true, false, false, -1);
+            Panel.HandleHeadsetFrame(Eye, true, false, false, 0);
+            Panel.HandleHeadsetFrame(Eye, true, false, false, -1);
+            Panel.HandleHeadsetFrame(Eye, true, true, false, 0);
+            Assert.That(status.text, Does.Contain("+20 gold").And.Contain("+5 reputation"));
+            Assert.That(third.text, Is.Not.EqualTo("Confirm reward"));
+            Panel.EndTalk();
+            Panel.HandleHeadsetFrame(Eye, true, false, false, 0);
+            var headsetHud = Eye.transform.Find("NPC exploration hint");
+            Assert.That(headsetHud.Find("Wallet").GetComponent<Text>().text, Does.Contain("40 coins").And.Contain("5 rep"));
+            Assert.That(headsetHud.Find("Objective").GetComponent<Text>().text, Does.Contain("Reward collected"));
+            Assert.That(headsetHud.Find("Direction").gameObject.activeSelf, Is.False);
         }
 
         [UnityTest]

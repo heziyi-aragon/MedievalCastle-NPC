@@ -27,7 +27,11 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             Eye.transform.LookAt(horse.bounds.center);
             Frame(); Frame(a: true); Frame();
             var hint = Eye.transform.Find("NPC exploration hint");
-            Assert.That(hint.gameObject.activeSelf, Is.False, "The spawn view must also hide the hint background.");
+            Assert.That(hint.gameObject.activeSelf, Is.True, "The gameplay HUD is visible while exploring.");
+            Assert.That(hint.Find("Hint").gameObject.activeSelf, Is.False, "A distant NPC has no interaction prompt.");
+            Assert.That(hint.Find("Objective").GetComponent<Text>().text, Is.EqualTo("向商人购买通行证"));
+            Assert.That(hint.Find("Wallet").GetComponent<Text>().text, Does.Contain("30 金币"));
+            Assert.That(hint.Find("Backpack").GetComponent<Text>().text, Is.EqualTo("背包为空"));
             Assert.That(Panel.InConversation, Is.False);
             Assert.That(Panel.LastTurn, Is.Null);
             yield return Approach("knight");
@@ -44,6 +48,7 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             Eye.transform.rotation = Quaternion.LookRotation(-Flat(knight.transform.position - chest).normalized);
             Frame(a: true);
             Assert.That(Panel.SelectedRole, Is.EqualTo(2), "Nearby horse and rider are one speaker, independently of gaze.");
+            Assert.That(hint.gameObject.activeSelf, Is.False, "The gameplay HUD releases the view for dialogue.");
             Assert.That(Panel.LastTurn, Is.Null);
             for (int i = 0; i < 3; i++) { yield return null; Frame(a: true); }
             Assert.That(Panel.LastTurn, Is.Null, "Holding the first A press must only greet.");
@@ -177,13 +182,20 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             Assert.That(card.Find("Option 3").gameObject.activeSelf, Is.False);
             Assert.That(card.Find("Status").GetComponent<Text>().text, Does.Contain("Unable"));
             Assert.That(canvas.gameObject.activeSelf, Is.False);
-            Frame(a: true); Frame(a: true); Frame();
+            Frame(a: true); Frame(a: true);
             Assert.That(provider.Requests, Has.Count.EqualTo(2));
             Assert.That(provider.Requests[1].PlayerText, Is.EqualTo(provider.Requests[0].PlayerText));
-            provider.Replies[1].SetResult("{\"reply\":\"Here is your bread.\",\"action\":\"request_purchase\",\"itemId\":\"bread\",\"quantity\":1,\"questId\":\"\"}");
+            provider.Replies[1].SetResult("{\"reply\":\"One Castle Pass costs ten coins.\",\"action\":\"request_purchase\",\"itemId\":\"castle_pass\",\"quantity\":1,\"questId\":\"\"}");
             deadline = Time.realtimeSinceStartup + 3f;
             while (Panel.LastTurn == null && Time.realtimeSinceStartup < deadline) yield return null;
             Assert.That(Panel.LastTurn.Decision.Action, Is.EqualTo(NpcAction.RequestPurchase));
+            yield return new WaitForSecondsRealtime(.12f);
+            Frame(a: true);
+            Assert.That(card.Find("Option 1/Label").GetComponent<Text>().text, Is.EqualTo("Confirm purchase"));
+            Assert.That(card.Find("Status").GetComponent<Text>().text, Does.Contain("Total 10 coins"));
+            Frame(); Frame(a: true); Frame(a: true);
+            Assert.That(card.Find("Status").GetComponent<Text>().text, Does.Contain("Balance: 20 coins"));
+            Assert.That(provider.Requests, Has.Count.EqualTo(2), "Confirmation is handled by Unity.");
         }
     }
 }

@@ -6,7 +6,7 @@ namespace MedievalCastle.Npc.Demo
 {
     public sealed partial class NpcDemoPanel
     {
-        private enum HudChoice { Prompt1, Prompt2, Prompt3, NextPage, Retry, End }
+        private enum HudChoice { Prompt1, Prompt2, Prompt3, NextPage, Retry, ConfirmPurchase, CancelPurchase, ClaimTrainingReward, End }
         private readonly HudChoice[] hudChoices = new HudChoice[5];
 
         private int choiceCount, headsetChoice, menuChoice, replyPage;
@@ -15,7 +15,7 @@ namespace MedievalCastle.Npc.Demo
         private Camera headsetCamera;
         private Canvas headsetCanvas;
         private RectTransform hudRect;
-        private Text hudBody;
+        private Text hudObjective, hudDirection, hudWallet, hudBag, hudBody;
 
         private void UpdateHeadset()
         {
@@ -82,7 +82,7 @@ namespace MedievalCastle.Npc.Demo
 
             if (menu || confirm || navigate || previousNearby != Nearby || wasTalking != InConversation || Time.unscaledTime >= nextHudDraw)
             {
-                nextHudDraw = Time.unscaledTime + .1f;
+                nextHudDraw = Time.unscaledTime + HudRefreshInterval;
                 PaintHud();
             }
             else if (InConversation && !MenuOpen && questions) FacePlayer(camera);
@@ -90,17 +90,24 @@ namespace MedievalCastle.Npc.Demo
 
         private int PageLength => replyIsChinese ? 48 : 112;
         private bool HasPages => SpokenLine.Length > PageLength && result != null && result.Success;
+        private bool ShowTrainingRewardChoice => role == 2 && gameplay.CanClaimTrainingReward;
 
         private void SetHudChoices()
         {
             choiceCount = 0;
             if (Failed) hudChoices[choiceCount++] = HudChoice.Retry;
+            else if (gameplay.PendingPurchase != null)
+            {
+                hudChoices[choiceCount++] = HudChoice.ConfirmPurchase;
+                hudChoices[choiceCount++] = HudChoice.CancelPurchase;
+                if (HasPages) hudChoices[choiceCount++] = HudChoice.NextPage;
+            }
             else if (!Pending)
             {
                 if (HasPages) hudChoices[choiceCount++] = HudChoice.NextPage;
                 hudChoices[choiceCount++] = HudChoice.Prompt1;
                 hudChoices[choiceCount++] = HudChoice.Prompt2;
-                hudChoices[choiceCount++] = HudChoice.Prompt3;
+                hudChoices[choiceCount++] = ShowTrainingRewardChoice ? HudChoice.ClaimTrainingReward : HudChoice.Prompt3;
             }
             hudChoices[choiceCount++] = HudChoice.End;
         }
@@ -112,6 +119,9 @@ namespace MedievalCastle.Npc.Demo
                 case HudChoice.Prompt1: case HudChoice.Prompt2: case HudChoice.Prompt3: return Prompt((int)choice);
                 case HudChoice.NextPage: return T("Next page", "翻页");
                 case HudChoice.Retry: return T("Retry", "重试");
+                case HudChoice.ConfirmPurchase: return T("Confirm purchase", "确认购买");
+                case HudChoice.CancelPurchase: return T("Cancel purchase", "取消购买");
+                case HudChoice.ClaimTrainingReward: return T("Confirm reward", "确认领奖");
                 default: return T("End conversation", "结束交谈");
             }
         }
@@ -120,11 +130,23 @@ namespace MedievalCastle.Npc.Demo
         {
             switch (choice)
             {
-                case HudChoice.Prompt1: case HudChoice.Prompt2: case HudChoice.Prompt3: Submit(Prompt((int)choice)); break;
+                case HudChoice.Prompt1:
+                    Submit(Prompt(0), actors[role].RoleId == "knight" ? NpcAction.OfferTraining : NpcAction.None);
+                    break;
+                case HudChoice.Prompt2: case HudChoice.Prompt3: Submit(Prompt((int)choice)); break;
                 case HudChoice.NextPage:
                     if (HasPages) replyPage = (replyPage + 1) % ((SpokenLine.Length + PageLength - 1) / PageLength);
                     break;
                 case HudChoice.Retry: Retry(); break;
+                case HudChoice.ConfirmPurchase: case HudChoice.CancelPurchase:
+                    gameOutcome = gameplay.FinishPurchase(service, choice == HudChoice.ConfirmPurchase, chinese);
+                    break;
+                case HudChoice.ClaimTrainingReward:
+                    if (role != 2 || Pending) break;
+                    gameOutcome = gameplay.ClaimTrainingReward(chinese);
+                    StopVoice();
+                    result = null;
+                    break;
                 case HudChoice.End: EndTalkWithFarewell(); break;
             }
         }
@@ -132,23 +154,25 @@ namespace MedievalCastle.Npc.Demo
         private void PaintHud()
         {
             RefreshWorldCards(headsetCamera, true);
-            if (MenuOpen)
+            if (MenuOpen || InConversation)
             {
                 headsetCanvas.gameObject.SetActive(false);
-                ShowLanguageSheet(headsetCamera, true);
+                if (MenuOpen) ShowLanguageSheet(headsetCamera, true);
                 return;
             }
-            string line = InConversation ? "" : ExploreText(true);
-            headsetCanvas.gameObject.SetActive(line.Length != 0);
-            if (line.Length != 0)
-            {
-                float height = SetHudLine(hudBody, 10, line, 84);
-                hudRect.sizeDelta = new Vector2(740, height + 10);
-            }
+
+            headsetCanvas.gameObject.SetActive(true);
+            var text = GetGameplayHudText(headsetCamera);
+            float height = SetHudLine(hudObjective, 10, text.objective, 60);
+            height = SetHudLine(hudDirection, height, text.direction, 34);
+            height = SetHudLine(hudWallet, height + 4, text.wallet, 35);
+            height = SetHudLine(hudBag, height, text.bag, 60);
+            height = SetHudLine(hudBody, height + 4, ExploreText(true), 60);
+            hudRect.sizeDelta = new Vector2(680, height + 8);
         }
         private static float SetHudLine(Text text, float top, string value, float maxHeight)
         {
-            text.text = value;
+            if (text.text != value) text.text = value;
             bool visible = !string.IsNullOrEmpty(value);
             if (text.gameObject.activeSelf != visible) text.gameObject.SetActive(visible);
             if (!visible) return top;
@@ -164,17 +188,20 @@ namespace MedievalCastle.Npc.Demo
             var panel = new GameObject("NPC exploration hint", typeof(RectTransform), typeof(Canvas), typeof(Image));
             hudRect = (RectTransform)panel.transform;
             hudRect.SetParent(camera.transform, false);
-            // Only the brief exploration hint follows the headset.
             hudRect.pivot = new Vector2(.5f, 1f);
-            hudRect.localPosition = new Vector3(0, -.12f, 1.10f);
-            hudRect.localScale = Vector3.one * .00122f;
-            hudRect.sizeDelta = new Vector2(740, 104);
+            hudRect.localPosition = new Vector3(0, -.20f, 1.10f);
+            hudRect.localScale = Vector3.one * .00113f;
+            hudRect.sizeDelta = new Vector2(680, 180);
             var background = panel.GetComponent<Image>();
             background.color = PanelColor;
             background.raycastTarget = false;
             headsetCanvas = panel.GetComponent<Canvas>();
             headsetCanvas.renderMode = RenderMode.WorldSpace;
             headsetCanvas.worldCamera = camera;
+            hudObjective = AddHudLine("Objective", 26, Parchment);
+            hudDirection = AddHudLine("Direction", 21, AccentColor);
+            hudWallet = AddHudLine("Wallet", 23, Parchment);
+            hudBag = AddHudLine("Backpack", 21, MutedColor);
             hudBody = AddHudLine("Hint", 25, Color.white);
             nextHudDraw = 0;
         }

@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using MedievalCastle.NPC;
 using UnityEngine;
+using GateView = MedievalCastle.Mechanics.GateView;
 
 [assembly: InternalsVisibleTo("CastleNPC.Demo.Tests")]
 [assembly: InternalsVisibleTo("CastleNPC.Demo.PlayModeTests")]
@@ -17,12 +18,14 @@ namespace MedievalCastle.Npc.Demo
         private const float SwitchMargin = .16f;
         internal const string LanguageKey = "CastleNPC.Language";
         [SerializeField] private Transform trainingTarget;
+        [SerializeField] private Transform[] trainingPoints = Array.Empty<Transform>();
+        [SerializeField] private GateView gate;
 
         private readonly CastleNpcCharacter[] actors = new CastleNpcCharacter[3];
         private readonly Collider[][] shapes = new Collider[3][];
         private readonly RaycastHit[] sightHits = new RaycastHit[32];
         private NpcDialogueService service;
-        private NpcPlayerState state;
+        private NpcGameplaySession gameplay;
         private Transform viewer;
         private Font font;
         private CancellationTokenSource cancellation;
@@ -30,6 +33,8 @@ namespace MedievalCastle.Npc.Demo
         private int role = -1, nearRole = -1;
         private bool chinese, failed;
         private string sentText = "";
+        private NpcAction confirmedAction;
+        private string gameOutcome = "";
 
         internal bool MenuOpen { get; private set; }
         internal bool InConversation => role >= 0;
@@ -47,7 +52,8 @@ namespace MedievalCastle.Npc.Demo
         {
             service = GetComponent<NpcDialogueService>();
             service.Mode = NpcProviderMode.DeepSeek;
-            state = NpcDemoScenario.MakeState();
+            gameplay = trainingPoints.Length == 0 ? NpcDemoScenario.CreateGameplay()
+                : NpcDemoScenario.CreateGameplay(trainingPoints.Length);
             chinese = PlayerPrefs.GetString(LanguageKey, "en") == "zh";
             foreach (var actor in GetComponentsInChildren<CastleNpcCharacter>(true))
             {
@@ -73,12 +79,14 @@ namespace MedievalCastle.Npc.Demo
             UpdateVoice();
             UpdateDesktop();
             UpdateHeadset();
+            UpdateTrainingPoint(Camera.main);
         }
 
         internal void SetLanguage(bool useChinese)
         {
             if (chinese == useChinese) return;
             chinese = useChinese;
+            nextDesktopHudDraw = nextHudDraw = 0;
             PlayerPrefs.SetString(LanguageKey, chinese ? "zh" : "en");
             PlayerPrefs.Save();
         }
@@ -178,21 +186,26 @@ namespace MedievalCastle.Npc.Demo
             var prior = cancellation;
             cancellation = null;
             prior?.Cancel();
+            gameplay?.FinishPurchase(service, false, chinese);
             StopVoice();
             if (InConversation && actors[role]) actors[role].EndConversation();
             role = -1;
             viewer = null;
             sentText = "";
+            confirmedAction = NpcAction.None;
+            gameOutcome = "";
             failed = false;
             result = null;
             CastlePlayerMotor.MovementLocked = MenuOpen;
             ResetDialoguePresentation();
         }
 
-        internal void Submit(string text)
+        internal void Submit(string text, NpcAction confirm = NpcAction.None)
         {
-            if (MenuOpen || !InConversation || Pending || string.IsNullOrWhiteSpace(text)) return;
+            if (MenuOpen || !InConversation || Pending || gameplay.PendingPurchase != null ||
+                string.IsNullOrWhiteSpace(text)) return;
             sentText = text.Trim();
+            confirmedAction = confirm;
             SendSaved();
         }
 
@@ -207,6 +220,7 @@ namespace MedievalCastle.Npc.Demo
             cancellation = request;
             result = null;
             failed = false;
+            gameOutcome = "";
             replyIsChinese = chinese;
             replyPage = 0;
             StopVoice();
@@ -214,11 +228,17 @@ namespace MedievalCastle.Npc.Demo
             actor.Listen(viewer);
             try
             {
-                var reply = await service.SendTurnAsync(actor.RoleId, sentText, state, chinese ? "zh" : "en", request.Token);
+                var reply = await service.SendTurnAsync(actor.RoleId, sentText, gameplay.Snapshot(),
+                    replyIsChinese ? "zh" : "en", request.Token);
                 if (request != cancellation || request.IsCancellationRequested) return;
                 result = reply;
                 failed = !reply.Success;
-                if (!failed) StartReply(actor, reply);
+                if (!failed)
+                {
+                    gameOutcome = gameplay.Apply(service, actor.RoleId, reply, confirmedAction, replyIsChinese);
+                    if (gate) gate.IsOpen = gameplay.GateOpen;
+                    StartReply(actor, reply);
+                }
             }
             catch (Exception)
             {
@@ -240,6 +260,8 @@ namespace MedievalCastle.Npc.Demo
             languageSheet?.Hide();
             MenuOpen = false;
             EndTalk();
+            if (trainingMarker) trainingMarker.gameObject.SetActive(false);
+            if (desktopGameplayHud) desktopGameplayHud.gameObject.SetActive(false);
             if (headsetCanvas) headsetCanvas.gameObject.SetActive(false);
         }
 

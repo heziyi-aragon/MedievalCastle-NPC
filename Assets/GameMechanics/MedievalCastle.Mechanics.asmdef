@@ -1,0 +1,5 @@
+{
+  "name": "MedievalCastle.Mechanics",
+  "rootNamespace": "MedievalCastle.Mechanics",
+  "references": ["UnityEngine.UI"]
+}

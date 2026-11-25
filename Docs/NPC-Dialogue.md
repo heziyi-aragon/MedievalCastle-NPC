@@ -25,7 +25,7 @@
 
 玩家对话使用这台电脑的个人 DeepSeek。设置 Windows 用户环境变量 `DEEPSEEK_API_KEY` 后重新进入 Play。可用 `DEEPSEEK_MODEL` 覆盖默认的 `deepseek-flash`。每次发送会结合角色、玩家状态与历史请求一条回复，超时为 30 秒。缺少密钥、余额不足及网络失败时，玩家可在对话中选择 **Retry** 或 **End conversation**。API 密钥只保存在本机。[DeepSeek API 文档](https://api-docs.deepseek.com/api/create-chat-completion/)
 
-编辑器自动测试可为 `NpcDialogueService` 指定离线提供方或注入受控响应，复现交易、训练、失败与迟到回包。正式游戏由玩法层执行并回报有效提议，NPC 面板只负责对话和手势。
+编辑器自动测试可为 `NpcDialogueService` 指定离线提供方或注入受控响应，复现交易、训练、失败与迟到回包。
 
 ### 角色语音
 
@@ -39,31 +39,13 @@
 
 ## 成员 3 如何接入
 
-代码使用程序集 `CastleNPC.Dialogue`、命名空间 `MedievalCastle.Npc`。当前城堡演示从 `NpcDemoScenario.MakeState()` 读取预设的通行证、金币和训练进度。接入玩法时，在每轮对话前传入玩家的实时状态，在 Unity 主线程调用场景上的 `NpcDialogueService`，并在执行决策后回报结果。下面以购买商品为例。
+在 `Castle_Exterior` 中，`NpcDemoPanel` 通过 `NpcGameplaySession` 使用同一份 `CastleGame`。开局有 30 枚铜币，背包为空。每次发问前读取新的玩家快照。角色的提议交给玩法层校验，实际执行结果显示在问句板并用 `ReportDecisionResult` 回传。
 
-```csharp
-var turn = await dialogue.SendTurnAsync("merchant", playerText, snapshot, "en", cancellationToken);
-if (!turn.Success)
-{
-    ShowRetry(turn.Error);
-    return;
-}
-
-ShowSubtitle(turn.Reply);
-if (turn.Decision.Action == NpcAction.RequestPurchase)
-{
-    // 这是玩法组提供的接口。它按 turnId 去重，并使用实时余额和商品表完成交易。
-    string outcome = shop.TryPurchaseOnce(turn.TurnId, snapshot.playerId,
-        turn.Decision.itemId, turn.Decision.quantity);
-    dialogue.ReportDecisionResult(turn.TurnId, outcome);
-}
-```
-
-- **输入。** 角色 ID 为 `guard`、`merchant`、`knight`；语言为 `en` 或 `zh`。每个玩家使用稳定的 `playerId`。状态包括 `hasPass`、`coins`、`inventory`（商品 ID 和数量）、`catalog`（商品 ID 和单价）、`questId`、`trainingStatus`、`trainingProgress`、`trainingTarget`。首次求助、状态变化和切换 NPC 都可以沿用同一服务实例。
+- **输入。** 角色 ID 为 `guard`、`merchant`、`knight`，语言为 `en` 或 `zh`。每个玩家使用稳定的 `playerId`。状态包括通行证持有和核验状态、钱币、声望、背包、商品目录以及训练进度。首次求助、状态变化和切换 NPC 都可以沿用同一服务实例。
 - **输出。** 成功结果包含 `TurnId`、`Reply`、`Decision`、`RawJson`、`IsOffline`。协议固定为 `reply`、`action`、`itemId`、`quantity`、`questId` 五个字段。无关 ID 填空字符串，无关数量填 0。玩法代码用枚举 `Decision.Action` 分发。 [六个可复制的 JSON 示例](NPC-Decision-Examples.json)
-- **守卫。** 问路和问规则返回 `None`；请求入城提出 `CheckPass`。玩法层读取实际通行证与城门权限。
-- **商人。** 询价和浏览商品返回 `None`；明确购买提出 `RequestPurchase`。商品 ID 必须位于当前目录，数量必须是正整数。玩法层以当前价格、数量和余额验证并执行交易。
-- **骑士。** 固定任务 ID 为 `courtyard_drill`，演示目标是检查三处操练标记。`available` 可提出 `OfferTraining`，`active` 和 `ready` 可提出 `ReviewTraining`，`rewarded` 只对话。玩法层维护标记进度并决定奖励。
+- **守卫。** 开局闸门关闭。问路和问规则不触发验票。请求入城时，守卫提出 `CheckPass`，Unity 核对实际背包。核验成功后，场景里的 `GateView` 将原有闸门连同碰撞体一起抬升。
+- **商人。** 可浏览货目、购买城门通行证或草药药水。桌面自由输入也可指定数量。询价返回 `None`，购买意向返回 `RequestPurchase`。Unity 从商品目录算出单价和总价，问句板显示订单并提供「确认购买」和「取消购买」。确认时 Unity 再次核对余额、数量及通行证持有状态，在同一回合扣款并更新背包。取消或结束对话时丢弃待确认订单。
+- **骑士。** 固定任务 ID 为 `courtyard_drill`。选择「开始庭院操练」后，Unity 核对玩家是否已经通过守卫核验。`active` 和 `ready` 状态下的 `ReviewTraining` 返回实时进度。
 - **回执与记忆。** 按玩家和角色分别保留最近六个有效对话回合。回执只归属于对应的 `turnId`，首次回执进入后续上下文。聊天记录在本次服务实例内有效。`Cancel()` 使进行中的结果失效，`ResetSession()` 同时清除记忆。玩家退出或换档时由调用方选择重置。
 - **重试与并发。** 同一玩家和角色的一轮进行中时重复提交会收到失败结果。空回复、错误 JSON、角色越权、取消和过期状态均返回无可执行决策的结果。若玩法层整体替换了状态对象，应取消旧请求或按自己的状态版本丢弃旧回合，并在执行时再次检查实时状态。
 

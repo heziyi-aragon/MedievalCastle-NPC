@@ -56,7 +56,11 @@ namespace MedievalCastle.Npc.Demo
 
         private void UpdateDesktop()
         {
-            if (XRSettings.isDeviceActive) return;
+            if (XRSettings.isDeviceActive)
+            {
+                if (desktopGameplayHud) desktopGameplayHud.gameObject.SetActive(false);
+                return;
+            }
             var keys = Keyboard.current;
             int frame = Time.frameCount;
             bool e = keys != null && keys.eKey.wasPressedThisFrame;
@@ -90,7 +94,11 @@ namespace MedievalCastle.Npc.Demo
 
         internal void HandleDesktopFrame(Camera camera, bool interactPressed, bool menuPressed)
         {
-            if (!camera) return;
+            if (!camera)
+            {
+                RefreshDesktopGameplayHud(null);
+                return;
+            }
             UpdateNearby(camera.transform);
             if (menuPressed)
             {
@@ -99,6 +107,7 @@ namespace MedievalCastle.Npc.Demo
             }
             else if (!MenuOpen && !InConversation && interactPressed)
                 BeginNearby(camera.transform);
+            RefreshDesktopGameplayHud(camera);
             RefreshWorldCards(camera, false);
             if (MenuOpen)
             {
@@ -126,7 +135,7 @@ namespace MedievalCastle.Npc.Demo
             clearTextFocus = true;
             headsetChoice = 0;
             replyPage = 0;
-            nextHudDraw = 0;
+            nextDesktopHudDraw = nextHudDraw = 0;
         }
 
         private void BuildDesktopSkin(GUISkin original)
