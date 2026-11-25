@@ -20,6 +20,7 @@ namespace MedievalCastle.Npc.Demo
         private int placedRole = -1, obstructedRole = -1;
         private Vector3 obstructedAt;
         private bool layoutValid, drawnChinese, drawnXr, drawnPending, drawnFailed, drawnVoiceUnavailable;
+        private bool drawnTrainingRewardChoice;
         private int drawnChoice, drawnPage;
         private string drawnLine, drawnOutcome;
         private NpcGameplaySession.PurchaseOrder drawnPurchase;
@@ -193,7 +194,7 @@ namespace MedievalCastle.Npc.Demo
             if (!place && layoutValid && drawnChinese == chinese && drawnXr == xr &&
                 drawnPending == Pending && drawnFailed == Failed && drawnChoice == headsetChoice &&
                 drawnPage == replyPage && drawnLine == SpokenLine && drawnVoiceUnavailable == VoiceUnavailable &&
-                drawnOutcome == gameOutcome && drawnPurchase == purchase)
+                drawnOutcome == gameOutcome && drawnPurchase == purchase && drawnTrainingRewardChoice == ShowTrainingRewardChoice)
             {
                 speech.gameObject.SetActive(!string.IsNullOrEmpty(SpokenLine));
                 FacePlayer(eye);
@@ -257,6 +258,7 @@ namespace MedievalCastle.Npc.Demo
             drawnLine = SpokenLine;
             drawnOutcome = gameOutcome;
             drawnPurchase = purchase;
+            drawnTrainingRewardChoice = ShowTrainingRewardChoice;
             if (place || switchedDisplay)
             {
                 placedRole = role;

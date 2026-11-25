@@ -281,6 +281,71 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
         }
 
         [UnityTest]
+        public IEnumerator KnightDrillFollowsTheSceneMarkersAndCanBeClaimedWithTheHeadset()
+        {
+            yield return Approach("merchant");
+            Panel.HandleDesktopFrame(Eye, true, false);
+            var card = Panel.transform.Find("NPC questions");
+            var first = card.Find("Option 1").GetComponent<Button>();
+            var third = card.Find("Option 3").GetComponentInChildren<Text>();
+            var status = card.Find("Status").GetComponent<Text>();
+            first.onClick.Invoke();
+            first.onClick.Invoke();
+            Panel.EndTalk();
+            yield return ReturnToSpawn();
+
+            yield return Approach("guard");
+            Begin("guard");
+            Panel.Submit(NpcDemoScenario.Prompt(0, 0, false));
+            Panel.EndTalk();
+
+            yield return Approach("knight");
+            Panel.HandleDesktopFrame(Eye, true, false);
+            Assert.That(Panel.SelectedRole, Is.EqualTo(2));
+            first.onClick.Invoke();
+            Assert.That(status.text, Does.Contain("0/3").And.Contain("marker 1"));
+            Assert.That(third.text, Is.Not.EqualTo("Confirm reward"));
+            Panel.EndTalk();
+            yield return null;
+
+            var points = Castle.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<Transform>())
+                .Where(t => t.name.StartsWith("Training Marker ")).OrderBy(t => t.name).ToArray();
+            Assert.That(points.Length, Is.EqualTo(3));
+            var marker = Panel.transform.Find("Training marker");
+            var number = marker.GetComponentInChildren<Text>();
+            IEnumerator WalkNear(Vector3 goal) =>
+                WalkTo(goal, () => Flat(goal - Eye.transform.position).magnitude < .32f, goal.ToString());
+
+            yield return WalkNear(new Vector3(-7f, 0, 27.2f));
+            yield return WalkNear(new Vector3(-7f, 0, 34.5f));
+            yield return WalkNear(points[1].position);
+            yield return null;
+            Assert.That(number.text, Is.EqualTo("1"), "Reaching marker 2 first cannot count.");
+
+            for (int i = 0; i < points.Length; i++)
+            {
+                yield return WalkNear(points[i].position);
+                yield return null;
+                if (i + 1 < points.Length) Assert.That(number.text, Is.EqualTo((i + 2).ToString()));
+            }
+            Assert.That(marker.gameObject.activeSelf, Is.False);
+            Assert.That(Panel.ExploreText(false), Does.Contain("Return to the knight"));
+
+            yield return WalkNear(new Vector3(-7f, 0, 34.5f));
+            yield return WalkNear(new Vector3(-7f, 0, 27.2f));
+            yield return Approach("knight");
+            Begin("knight");
+            Panel.HandleHeadsetFrame(Eye, true, false, false, 0);
+            Assert.That(third.text, Is.EqualTo("Confirm reward"));
+            Panel.HandleHeadsetFrame(Eye, true, false, false, -1);
+            Panel.HandleHeadsetFrame(Eye, true, false, false, 0);
+            Panel.HandleHeadsetFrame(Eye, true, false, false, -1);
+            Panel.HandleHeadsetFrame(Eye, true, true, false, 0);
+            Assert.That(status.text, Does.Contain("+20 gold").And.Contain("+5 reputation"));
+            Assert.That(third.text, Is.Not.EqualTo("Confirm reward"));
+        }
+
+        [UnityTest]
         public IEnumerator NearestRoleStaysStableAcrossSmallMovementsBesideTwoCharacters()
         {
             var guard = Actor("guard");

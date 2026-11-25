@@ -18,6 +18,7 @@ namespace MedievalCastle.Npc.Demo
         private const float SwitchMargin = .16f;
         internal const string LanguageKey = "CastleNPC.Language";
         [SerializeField] private Transform trainingTarget;
+        [SerializeField] private Transform[] trainingPoints = Array.Empty<Transform>();
         [SerializeField] private GateView gate;
 
         private readonly CastleNpcCharacter[] actors = new CastleNpcCharacter[3];
@@ -51,7 +52,8 @@ namespace MedievalCastle.Npc.Demo
         {
             service = GetComponent<NpcDialogueService>();
             service.Mode = NpcProviderMode.DeepSeek;
-            gameplay = NpcDemoScenario.CreateGameplay();
+            gameplay = trainingPoints.Length == 0 ? NpcDemoScenario.CreateGameplay()
+                : NpcDemoScenario.CreateGameplay(trainingPoints.Length);
             chinese = PlayerPrefs.GetString(LanguageKey, "en") == "zh";
             foreach (var actor in GetComponentsInChildren<CastleNpcCharacter>(true))
             {
@@ -77,6 +79,7 @@ namespace MedievalCastle.Npc.Demo
             UpdateVoice();
             UpdateDesktop();
             UpdateHeadset();
+            UpdateTrainingPoint(Camera.main);
         }
 
         internal void SetLanguage(bool useChinese)
@@ -153,7 +156,9 @@ namespace MedievalCastle.Npc.Demo
 
         internal string ExploreText(bool headset)
         {
-            if (!Nearby) return string.Empty;
+            if (!Nearby)
+                return gameplay.CanClaimTrainingReward ? T("Drill complete. Return to the knight.", "操练完成。请回去找骑士。")
+                    : string.Empty;
             if (obstructedRole == nearRole) return T("Step to one side to talk.", "向旁边走一步再交谈。");
             string name = RoleName(nearRole);
             return (headset ? "A" : "E") + (chinese ? " · 与" + name + "交谈" : " · Talk to " + name);
@@ -256,6 +261,7 @@ namespace MedievalCastle.Npc.Demo
             languageSheet?.Hide();
             MenuOpen = false;
             EndTalk();
+            if (trainingMarker) trainingMarker.gameObject.SetActive(false);
             if (headsetCanvas) headsetCanvas.gameObject.SetActive(false);
         }
 

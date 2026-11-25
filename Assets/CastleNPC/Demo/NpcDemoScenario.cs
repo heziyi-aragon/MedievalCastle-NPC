@@ -29,7 +29,8 @@ namespace MedievalCastle.Npc.Demo
             return role == 0 ? "Guard" : role == 1 ? "Merchant" : "Knight";
         }
 
-        internal static NpcGameplaySession CreateGameplay() => new NpcGameplaySession(new CastleGame(30, 3));
+        internal static NpcGameplaySession CreateGameplay(int trainingTotal = 3) =>
+            new NpcGameplaySession(new CastleGame(30, trainingTotal));
 
         public static NpcPlayerState MakeState() => CreateGameplay().Snapshot();
     }

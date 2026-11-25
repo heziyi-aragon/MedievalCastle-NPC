@@ -155,12 +155,13 @@ namespace MedievalCastle.Npc.Demo.Tests
         }
 
         [Test]
-        public void TrainingReadsCurrentProgressAndAReviewDoesNotAwardTheReward()
+        public void TrainingRequiresOrderedVisitsAndExplicitlyAwardsTheRewardOnce()
         {
             string training = NpcDemoScenario.Prompt(2, 0, false);
             var prematureOffer = Send("knight", training);
             gameplay.Apply(dialogue, "knight", prematureOffer, NpcAction.OfferTraining, false);
             Assert.That(gameplay.Snapshot().trainingStatus, Is.EqualTo("available"));
+            Assert.That(gameplay.ClaimTrainingReward(false), Does.Contain("Start courtyard training"));
 
             var order = Send("merchant", NpcDemoScenario.Prompt(1, 0, false));
             gameplay.Apply(dialogue, "merchant", order, NpcAction.None, false);
@@ -168,19 +169,33 @@ namespace MedievalCastle.Npc.Demo.Tests
             var check = Send("guard", NpcDemoScenario.Prompt(0, 0, false));
             gameplay.Apply(dialogue, "guard", check, NpcAction.None, false);
             var offer = Send("knight", training);
-            gameplay.Apply(dialogue, "knight", offer, NpcAction.OfferTraining, false);
-            Assert.That(game.VisitTrainingPoint(0), Is.True);
+            Assert.That(gameplay.Apply(dialogue, "knight", offer, NpcAction.OfferTraining, false), Does.Contain("0/3"));
+            Assert.That(gameplay.VisitTrainingPoint(1), Is.False);
+            Assert.That(gameplay.VisitTrainingPoint(0), Is.True);
+            Assert.That(gameplay.VisitTrainingPoint(0), Is.False);
+            Assert.That(gameplay.ClaimTrainingReward(true), Does.Contain("1/3").And.Contain("2 号标记"));
+            Assert.That(gameplay.Snapshot().coins, Is.EqualTo(20));
+            Assert.That(gameplay.Snapshot().reputation, Is.Zero);
 
             var review = Send("knight", NpcDemoScenario.Prompt(2, 1, false));
             Assert.That(review.Decision.Action, Is.EqualTo(NpcAction.ReviewTraining));
-            Assert.That(gameplay.Apply(dialogue, "knight", review, NpcAction.None, false), Does.Contain("1/3"));
-            Assert.That(game.VisitTrainingPoint(1), Is.True);
-            Assert.That(game.VisitTrainingPoint(2), Is.True);
+            Assert.That(gameplay.Apply(dialogue, "knight", review, NpcAction.None, false),
+                Does.Contain("1/3").And.Contain("marker 2"));
+            Assert.That(gameplay.VisitTrainingPoint(1), Is.True);
+            Assert.That(gameplay.VisitTrainingPoint(2), Is.True);
             review = Send("knight", NpcDemoScenario.Prompt(2, 1, false));
-            gameplay.Apply(dialogue, "knight", review, NpcAction.None, false);
+            Assert.That(gameplay.Apply(dialogue, "knight", review, NpcAction.None, false),
+                Does.Contain("3/3").And.Contain("Confirm reward"));
             Assert.That(gameplay.Snapshot().trainingStatus, Is.EqualTo("ready"));
             Assert.That(gameplay.Snapshot().coins, Is.EqualTo(20));
             Assert.That(gameplay.Snapshot().reputation, Is.Zero);
+            Assert.That(gameplay.CanClaimTrainingReward, Is.True);
+            Assert.That(gameplay.ClaimTrainingReward(true), Does.Contain("20 金币").And.Contain("5 声望"));
+            Assert.That(gameplay.CanClaimTrainingReward, Is.False);
+            Assert.That(gameplay.ClaimTrainingReward(false), Does.Contain("already claimed"));
+            Assert.That(gameplay.Snapshot().coins, Is.EqualTo(40));
+            Assert.That(gameplay.Snapshot().reputation, Is.EqualTo(5));
+            Assert.That(gameplay.Snapshot().trainingStatus, Is.EqualTo("rewarded"));
         }
 
         private NpcTurnResult Send(string npc, string text, bool chinese = false)

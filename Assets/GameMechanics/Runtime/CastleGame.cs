@@ -199,9 +199,11 @@ namespace MedievalCastle.Mechanics
 
         private ActionResult ClaimReward()
         {
-            if (Quest == QuestStage.Rewarded) return Failure("You already claimed this reward.");
+            if (Quest == QuestStage.Rewarded)
+                return new ActionResult(false, "You already claimed this reward.", "你已经领取过奖励。");
             if (Quest != QuestStage.Complete) return Failure("Finish all training stations before claiming the reward.");
-            if (Gold > int.MaxValue - RewardGold) return Failure("Your gold balance is full.");
+            if (Gold > int.MaxValue - RewardGold)
+                return new ActionResult(false, "Your gold balance is full.", "你的金币余额已达到上限。");
 
             Quest = QuestStage.Rewarded;
             Gold += RewardGold;

@@ -40,8 +40,8 @@ namespace MedievalCastle.Npc
                 case "knight":
                     if (IsDirections(text) || ContainsAny(text, "how do i", "how to", "what do i", "怎样", "怎么", "如何"))
                     {
-                        answer.reply = zh ? $"在庭院操练区检查 {state.trainingTarget} 处标记，再回来报告。"
-                            : $"Inspect {state.trainingTarget} markers on the training side of the courtyard, then return to report.";
+                        answer.reply = zh ? $"依次走到庭院操练区的 {state.trainingTarget} 处标记，再回来报告。"
+                            : $"Walk to the {state.trainingTarget} numbered markers in the training yard in order, then report back.";
                         break;
                     }
                     if (IsSpeculative(text))
@@ -58,8 +58,8 @@ namespace MedievalCastle.Npc
                     {
                         answer.action = "offer_training";
                         answer.questId = state.questId;
-                        answer.reply = zh ? $"到庭院检查 {state.trainingTarget} 处操练标记。"
-                            : $"Inspect {state.trainingTarget} training markers in the courtyard.";
+                        answer.reply = zh ? $"依次走到庭院的 {state.trainingTarget} 处操练标记。"
+                            : $"Walk to the {state.trainingTarget} numbered training markers in order.";
                     }
                     else if (state.trainingStatus == "active" || state.trainingStatus == "ready")
                     {
@@ -67,8 +67,8 @@ namespace MedievalCastle.Npc
                         answer.questId = state.questId;
                         bool complete = state.trainingProgress >= state.trainingTarget;
                         answer.reply = zh
-                            ? $"已检查 {state.trainingProgress}/{state.trainingTarget} 处标记。" + (complete ? "到我这里报告。" : "继续检查下一处。")
-                            : $"You checked {state.trainingProgress} of {state.trainingTarget} markers. " + (complete ? "Report to me." : "Move to the next marker.");
+                            ? $"已完成 {state.trainingProgress}/{state.trainingTarget} 处标记。" + (complete ? "可以确认领奖了。" : $"接着走到 {state.trainingProgress + 1} 号标记。")
+                            : $"You reached {state.trainingProgress} of {state.trainingTarget} markers. " + (complete ? "You can confirm your reward." : $"Walk to marker {state.trainingProgress + 1}.");
                     }
                     else answer.reply = zh ? "这一轮操练已经领过奖励了。" : "The reward for this drill has already been claimed.";
                     break;

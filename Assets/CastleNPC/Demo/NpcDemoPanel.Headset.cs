@@ -6,7 +6,7 @@ namespace MedievalCastle.Npc.Demo
 {
     public sealed partial class NpcDemoPanel
     {
-        private enum HudChoice { Prompt1, Prompt2, Prompt3, NextPage, Retry, ConfirmPurchase, CancelPurchase, End }
+        private enum HudChoice { Prompt1, Prompt2, Prompt3, NextPage, Retry, ConfirmPurchase, CancelPurchase, ClaimTrainingReward, End }
         private readonly HudChoice[] hudChoices = new HudChoice[5];
 
         private int choiceCount, headsetChoice, menuChoice, replyPage;
@@ -90,6 +90,7 @@ namespace MedievalCastle.Npc.Demo
 
         private int PageLength => replyIsChinese ? 48 : 112;
         private bool HasPages => SpokenLine.Length > PageLength && result != null && result.Success;
+        private bool ShowTrainingRewardChoice => role == 2 && gameplay.CanClaimTrainingReward;
 
         private void SetHudChoices()
         {
@@ -106,7 +107,7 @@ namespace MedievalCastle.Npc.Demo
                 if (HasPages) hudChoices[choiceCount++] = HudChoice.NextPage;
                 hudChoices[choiceCount++] = HudChoice.Prompt1;
                 hudChoices[choiceCount++] = HudChoice.Prompt2;
-                hudChoices[choiceCount++] = HudChoice.Prompt3;
+                hudChoices[choiceCount++] = ShowTrainingRewardChoice ? HudChoice.ClaimTrainingReward : HudChoice.Prompt3;
             }
             hudChoices[choiceCount++] = HudChoice.End;
         }
@@ -120,6 +121,7 @@ namespace MedievalCastle.Npc.Demo
                 case HudChoice.Retry: return T("Retry", "重试");
                 case HudChoice.ConfirmPurchase: return T("Confirm purchase", "确认购买");
                 case HudChoice.CancelPurchase: return T("Cancel purchase", "取消购买");
+                case HudChoice.ClaimTrainingReward: return T("Confirm reward", "确认领奖");
                 default: return T("End conversation", "结束交谈");
             }
         }
@@ -138,6 +140,12 @@ namespace MedievalCastle.Npc.Demo
                 case HudChoice.Retry: Retry(); break;
                 case HudChoice.ConfirmPurchase: case HudChoice.CancelPurchase:
                     gameOutcome = gameplay.FinishPurchase(service, choice == HudChoice.ConfirmPurchase, chinese);
+                    break;
+                case HudChoice.ClaimTrainingReward:
+                    if (role != 2 || Pending) break;
+                    gameOutcome = gameplay.ClaimTrainingReward(chinese);
+                    StopVoice();
+                    result = null;
                     break;
                 case HudChoice.End: EndTalkWithFarewell(); break;
             }

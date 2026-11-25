@@ -11,6 +11,8 @@ namespace MedievalCastle.Npc.Demo
     {
         private readonly CastleGame game;
         internal bool GateOpen => game.GateOpen;
+        internal int NextTrainingPoint => game.Quest == QuestStage.InProgress ? game.TrainingProgress : -1;
+        internal bool CanClaimTrainingReward => game.Quest == QuestStage.Complete;
         internal PurchaseOrder PendingPurchase { get; private set; }
 
         internal sealed class PurchaseOrder
@@ -106,6 +108,30 @@ namespace MedievalCastle.Npc.Demo
             return outcome;
         }
 
+        internal bool VisitTrainingPoint(int index) => game.VisitTrainingPoint(index);
+
+        internal string ClaimTrainingReward(bool chinese)
+        {
+            var reward = game.Execute(Guid.NewGuid().ToString("N"), NpcRole.Knight, new CastleAction { type = "CLAIM_REWARD" });
+            if (reward.Success)
+                return chinese ? $"已领取 {CastleGame.RewardGold} 金币和 {CastleGame.RewardReputation} 声望。" : reward.Message;
+            if (game.Quest == QuestStage.Available || game.Quest == QuestStage.InProgress)
+                return TrainingInstructions(chinese);
+            return reward.MessageFor(chinese);
+        }
+
+        private string TrainingInstructions(bool chinese)
+        {
+            string progress = $"{game.TrainingProgress}/{game.TrainingTotal}";
+            if (game.Quest == QuestStage.Complete)
+                return chinese ? $"操练完成（{progress}）。请选择「确认领奖」。"
+                    : $"Drill complete ({progress}). Choose Confirm reward.";
+            if (game.Quest == QuestStage.InProgress)
+                return chinese ? $"操练进度：{progress}。请走到 {game.TrainingProgress + 1} 号标记。"
+                    : $"Training: {progress}. Walk to marker {game.TrainingProgress + 1}.";
+            return chinese ? "请先接下庭院操练。" : "Start courtyard training first.";
+        }
+
         private string Resolve(string npcId, NpcTurnResult turn, NpcAction confirmedAction, bool chinese)
         {
             string T(string english, string zh) => chinese ? zh : english;
@@ -127,11 +153,10 @@ namespace MedievalCastle.Npc.Demo
                     if (confirmedAction != proposal.Action)
                         return T("Choose Start courtyard training to accept.", "请选择「开始庭院操练」接下任务。");
                     var accepted = game.Execute(turn.TurnId, NpcRole.Knight, new CastleAction { type = "ACCEPT_QUEST" });
-                    return accepted.Success ? T("Courtyard training accepted.", "已接下庭院操练。")
+                    return accepted.Success ? TrainingInstructions(chinese)
                         : T(accepted.Message, game.GateOpen ? "操练已经开始。" : "请先向守卫核验通行证。");
                 case NpcAction.ReviewTraining when npcId == "knight" && proposal.questId == NpcDemoScenario.DrillId:
-                    return T($"Training: {game.TrainingProgress}/{game.TrainingTotal} markers.",
-                        $"操练进度：{game.TrainingProgress}/{game.TrainingTotal}。");
+                    return TrainingInstructions(chinese);
                 default:
                     return T("This NPC cannot perform that action.", "这个角色无法执行该动作。");
             }
