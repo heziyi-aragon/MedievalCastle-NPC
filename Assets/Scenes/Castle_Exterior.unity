@@ -1843,6 +1843,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   trainingTarget: {fileID: 1196044705}
+  gate: {fileID: 264009943}
 --- !u!114 &310125413
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7673,6 +7674,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: castle-with-keep
       objectReference: {fileID: 0}
+    - target: {fileID: -5468151957060933566, guid: 3ae92153ded725f4d83b55638436a6b9,
+        type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -2.03
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
@@ -7683,6 +7689,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 7507745705946034306, guid: 3ae92153ded725f4d83b55638436a6b9, type: 3}
       insertIndex: -1
       addedObject: {fileID: 264009942}
+    - targetCorrespondingSourceObject: {fileID: 7507745705946034306, guid: 3ae92153ded725f4d83b55638436a6b9, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 264009943}
   m_SourcePrefab: {fileID: -4161369568681901532, guid: 3ae92153ded725f4d83b55638436a6b9,
     type: 3}
 --- !u!1 &264009941 stripped
@@ -7711,6 +7720,20 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 3.48, y: 4.72, z: 0.146}
   m_Center: {x: 0, y: 4.34, z: 22.572}
+--- !u!114 &264009943
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 264009941}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4a546438295e441c6acfc573484a50d2, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  localTravel: {x: 0, y: 2.03, z: 0}
+  speed: 1.6
 --- !u!4 &264009910 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8597434028195778436, guid: 3ae92153ded725f4d83b55638436a6b9, type: 3}

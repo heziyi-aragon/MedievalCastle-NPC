@@ -39,11 +39,11 @@
 
 ## 成员 3 如何接入
 
-在 `Castle_Exterior` 中，`NpcDemoPanel` 通过 `NpcGameplaySession` 使用同一份 `CastleGame`。开局有 30 枚铜币，背包为空。每次发问前读取新的玩家快照。角色的提议交给玩法层校验，实际执行结果显示在问句板并用 `ReportDecisionResult` 回传。逻辑上的通过核验与场景中的闸门运动分别由玩法状态和场景组件负责。
+在 `Castle_Exterior` 中，`NpcDemoPanel` 通过 `NpcGameplaySession` 使用同一份 `CastleGame`。开局有 30 枚铜币，背包为空。每次发问前读取新的玩家快照。角色的提议交给玩法层校验，实际执行结果显示在问句板并用 `ReportDecisionResult` 回传。
 
 - **输入。** 角色 ID 为 `guard`、`merchant`、`knight`，语言为 `en` 或 `zh`。每个玩家使用稳定的 `playerId`。状态包括通行证持有和核验状态、钱币、声望、背包、商品目录以及训练进度。首次求助、状态变化和切换 NPC 都可以沿用同一服务实例。
 - **输出。** 成功结果包含 `TurnId`、`Reply`、`Decision`、`RawJson`、`IsOffline`。协议固定为 `reply`、`action`、`itemId`、`quantity`、`questId` 五个字段。无关 ID 填空字符串，无关数量填 0。玩法代码用枚举 `Decision.Action` 分发。 [六个可复制的 JSON 示例](NPC-Decision-Examples.json)
-- **守卫。** 问路和问规则返回 `None`；请求入城提出 `CheckPass`。玩法层读取实际通行证与城门权限。
+- **守卫。** 开局闸门关闭。问路和问规则不触发验票。请求入城时，守卫提出 `CheckPass`，Unity 核对实际背包。核验成功后，场景里的 `GateView` 将原有闸门连同碰撞体一起抬升。
 - **商人。** 询价和浏览商品返回 `None`，明确购买可提出 `RequestPurchase`。当前选择「买一张城门通行证」会同意这一项订单，玩法层再核对提议的商品、数量和实时余额。自由输入可以询价或提出意向。
 - **骑士。** 固定任务 ID 为 `courtyard_drill`。选择「开始庭院操练」后，Unity 核对玩家是否已经通过守卫核验。`active` 和 `ready` 状态下的 `ReviewTraining` 返回实时进度。
 - **回执与记忆。** 按玩家和角色分别保留最近六个有效对话回合。回执只归属于对应的 `turnId`，首次回执进入后续上下文。聊天记录在本次服务实例内有效。`Cancel()` 使进行中的结果失效，`ResetSession()` 同时清除记忆。玩家退出或换档时由调用方选择重置。

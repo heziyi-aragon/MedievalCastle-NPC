@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using MedievalCastle.NPC;
 using UnityEngine;
+using GateView = MedievalCastle.Mechanics.GateView;
 
 [assembly: InternalsVisibleTo("CastleNPC.Demo.Tests")]
 [assembly: InternalsVisibleTo("CastleNPC.Demo.PlayModeTests")]
@@ -17,6 +18,7 @@ namespace MedievalCastle.Npc.Demo
         private const float SwitchMargin = .16f;
         internal const string LanguageKey = "CastleNPC.Language";
         [SerializeField] private Transform trainingTarget;
+        [SerializeField] private GateView gate;
 
         private readonly CastleNpcCharacter[] actors = new CastleNpcCharacter[3];
         private readonly Collider[][] shapes = new Collider[3][];
@@ -228,6 +230,7 @@ namespace MedievalCastle.Npc.Demo
                 if (!failed)
                 {
                     gameOutcome = gameplay.Apply(service, actor.RoleId, reply, confirmedAction, replyIsChinese);
+                    if (gate) gate.IsOpen = gameplay.GateOpen;
                     StartReply(actor, reply);
                 }
             }

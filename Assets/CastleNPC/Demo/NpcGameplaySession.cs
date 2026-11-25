@@ -10,6 +10,7 @@ namespace MedievalCastle.Npc.Demo
     internal sealed class NpcGameplaySession
     {
         private readonly CastleGame game;
+        internal bool GateOpen => game.GateOpen;
 
         internal NpcGameplaySession(CastleGame game)
         {

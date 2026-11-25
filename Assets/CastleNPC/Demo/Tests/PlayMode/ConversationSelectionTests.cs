@@ -11,6 +11,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace MedievalCastle.Npc.Demo.PlayModeTests
 {
@@ -158,10 +159,9 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
         }
 
         [UnityTest]
-        public IEnumerator MarketAndTrainingFlankTheGateAndThePlayerCanWalkUnderTheRaisedGrate()
+        public IEnumerator MarketAndTrainingFlankTheGateAndThePlayerCanReachTheRider()
         {
             var landmarks = Castle.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<Transform>()).ToArray();
-            var grate = landmarks.Single(t => t.name == "Portcullis").GetComponent<BoxCollider>();
             var stall = landmarks.Single(t => t.name == "MarketStall");
             var yard = landmarks.Single(t => t.name == "TrainingYard");
             var merchant = Actor("merchant").transform.position;
@@ -183,16 +183,72 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             Assert.That(Vector3.Angle(Flat(guard - Spawn.position), Spawn.forward), Is.LessThan(25f),
                 "The guard must be ahead when facing the castle");
 
-            var gate = grate.bounds.center;
-            var inside = gate + Spawn.forward * 1.5f;
-            yield return WalkTo(inside, () => Flat(inside - Eye.transform.position).magnitude < .20f,
-                "the middle of the gateway past the guard and raised grate");
             yield return Approach("knight");
             Assert.That(Motor.GetComponent<CharacterController>().bounds.max.z, Is.LessThan(outsideEdge),
                 "A player arriving from the gate can speak from outside the fence.");
             Panel.HandleDesktopFrame(Eye, true, false);
             Assert.That(Panel.SelectedRole, Is.EqualTo(2));
             Assert.That(Panel.transform.Find("NPC questions").gameObject.activeSelf, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator PortcullisClearsThePassageOnlyAfterTheGuardVerifiesThePass()
+        {
+            var grate = Castle.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<Transform>())
+                .Single(t => t.name == "Portcullis").GetComponent<BoxCollider>();
+            var mesh = grate.GetComponent<Renderer>();
+            Physics.SyncTransforms();
+            Vector3 gateCenter = grate.bounds.center;
+            Vector3 outside = gateCenter - Spawn.forward;
+            Vector3 inside = gateCenter + Spawn.forward * 1.5f;
+            Vector3 closedPosition = grate.transform.localPosition;
+            float closedBottom = grate.bounds.min.y;
+            float closedMeshBottom = mesh.bounds.min.y;
+
+            yield return WalkTo(outside, () => Flat(outside - Eye.transform.position).magnitude < .20f, "closed castle gate");
+            for (int frame = 0; frame < 90; frame++)
+            {
+                StepToward(inside);
+                if (frame % 8 == 7) yield return null;
+            }
+            Assert.That(Vector3.Dot(Eye.transform.position - gateCenter, Spawn.forward), Is.LessThan(-.12f),
+                "The closed gate stops the player outside the passage.");
+            yield return ReturnToSpawn();
+
+            string entryRequest = NpcDemoScenario.Prompt(0, 0, false);
+            yield return Approach("guard");
+            Begin("guard");
+            Panel.Submit(entryRequest);
+            Assert.That(Panel.LastTurn.Decision.Action, Is.EqualTo(NpcAction.CheckPass));
+            yield return Observe(.15f, () => Assert.That(grate.transform.localPosition, Is.EqualTo(closedPosition)));
+            Panel.EndTalk();
+            yield return ReturnToSpawn();
+
+            yield return Approach("merchant");
+            Panel.HandleDesktopFrame(Eye, true, false);
+            Assert.That(Panel.SelectedRole, Is.EqualTo(1));
+            Panel.transform.Find("NPC questions/Option 1").GetComponent<Button>().onClick.Invoke();
+            Assert.That(Panel.LastTurn.Decision.Action, Is.EqualTo(NpcAction.RequestPurchase));
+            yield return Observe(.15f, () => Assert.That(grate.transform.localPosition, Is.EqualTo(closedPosition)));
+            Panel.EndTalk();
+            yield return ReturnToSpawn();
+
+            yield return Approach("guard");
+            Begin("guard");
+            Panel.Submit(entryRequest);
+            Assert.That(Panel.LastTurn.Decision.Action, Is.EqualTo(NpcAction.CheckPass));
+            Panel.EndTalk();
+            float deadline = Time.realtimeSinceStartup + 3f;
+            do
+            {
+                yield return null;
+                Physics.SyncTransforms();
+            } while (grate.bounds.min.y < 1.95f && Time.realtimeSinceStartup < deadline);
+            Assert.That(grate.bounds.min.y, Is.GreaterThanOrEqualTo(1.95f), "A verified pass raises the grate.");
+            Assert.That(mesh.bounds.min.y - closedMeshBottom, Is.EqualTo(grate.bounds.min.y - closedBottom).Within(.01f),
+                "The collider rises the same distance as the visible grate.");
+            yield return ReturnToSpawn();
+            yield return WalkTo(inside, () => Flat(inside - Eye.transform.position).magnitude < .20f, "opened gateway");
         }
 
         [UnityTest]

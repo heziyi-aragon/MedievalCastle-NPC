@@ -175,7 +175,7 @@ namespace MedievalCastle.Tests
         }
 
         [UnityTest]
-        public IEnumerator CastleMasonryBlocksBothTowersAndLeavesTheCentralPassageOpen()
+        public IEnumerator CastleMasonryBlocksBothTowersAndTheClosedGateBlocksThePassage()
         {
             yield return SceneManager.LoadSceneAsync("Assets/Scenes/Castle_Exterior.unity", LoadSceneMode.Additive);
             castleScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
@@ -190,13 +190,9 @@ namespace MedievalCastle.Tests
                 bool blocked = shapes.Any(shape => shape.Raycast(ray, out _, 15f));
                 Assert.That(blocked, Is.EqualTo(offset != 0f), $"Approach x={offset}");
             }
-            Assert.That(grate.Raycast(new Ray(new Vector3(0f, 1.75f, 28f), Vector3.back), out _, 10f), Is.False,
-                "A standing player can pass beneath the raised grille");
-            Assert.That(grate.Raycast(new Ray(new Vector3(0f, 2.25f, 28f), Vector3.back), out _, 10f), Is.True);
-            grate.transform.Translate(Vector3.down, Space.World);
-            Physics.SyncTransforms();
+            Assert.That(grate.bounds.min.y, Is.LessThanOrEqualTo(.05f), "The closed gate reaches the entrance floor.");
             Assert.That(grate.Raycast(new Ray(new Vector3(0f, 1.75f, 28f), Vector3.back), out _, 10f), Is.True,
-                "Lowering the visible gate must also lower its collider");
+                "The closed gate blocks the central passage.");
         }
     }
 }
