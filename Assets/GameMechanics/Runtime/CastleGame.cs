@@ -65,12 +65,16 @@ namespace MedievalCastle.Mechanics
     {
         public bool Success { get; }
         public string Message { get; }
+        private readonly string chineseMessage;
 
-        public ActionResult(bool success, string message)
+        public ActionResult(bool success, string message, string chineseMessage = null)
         {
             Success = success;
             Message = message;
+            this.chineseMessage = chineseMessage;
         }
+
+        public string MessageFor(bool chinese) => chinese ? chineseMessage ?? Message : Message;
     }
 
     public sealed class CastleGame
@@ -159,20 +163,30 @@ namespace MedievalCastle.Mechanics
             return Success("Pass accepted. The castle gate is opening.");
         }
 
+        public ActionResult QuotePurchase(string id, int quantity, out int total)
+        {
+            total = 0;
+            if (id != PassId && id != PotionId)
+                return new ActionResult(false, "That item is not for sale.", "这件商品不在出售目录里。");
+            if (quantity < 1 || quantity > 9)
+                return new ActionResult(false, "Choose a quantity from 1 to 9.", "购买数量须为 1 到 9 件。");
+            if (id == PassId && (quantity != 1 || inventory.ContainsKey(id)))
+                return new ActionResult(false, "You can carry one Castle Pass.", "每人只能持有一张城门通行证。");
+
+            total = (id == PassId ? PassPrice : PotionPrice) * quantity;
+            if (Gold < total)
+                return new ActionResult(false, $"You need {total - Gold} more gold.", $"余额不足，还差 {total - Gold} 枚铜币。");
+            return Success("");
+        }
+
         private ActionResult Buy(string id, int quantity)
         {
-            if (id != PassId && id != PotionId) return Failure("That item is not for sale.");
-            if (quantity < 1 || quantity > 9) return Failure("Choose a quantity from 1 to 9.");
-
+            var quote = QuotePurchase(id, quantity, out int total);
+            if (!quote.Success) return quote;
             inventory.TryGetValue(id, out int owned);
-            if (id == PassId && (quantity != 1 || owned != 0)) return Failure("You can carry one Castle Pass.");
-
-            int cost = (id == PassId ? PassPrice : PotionPrice) * quantity;
-            if (Gold < cost) return Failure($"You need {cost - Gold} more gold.");
-
-            Gold -= cost;
+            Gold -= total;
             inventory[id] = owned + quantity;
-            return Success($"Bought {quantity} × {ItemName(id)} for {cost} gold.");
+            return Success($"Bought {quantity} × {ItemName(id)} for {total} gold.");
         }
 
         private ActionResult AcceptQuest()

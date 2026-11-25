@@ -29,8 +29,8 @@ namespace MedievalCastle.Npc.Demo.Tests
         [TestCase(1, 0, false, "available", NpcAction.RequestPurchase)]
         [TestCase(1, 1, false, "available", NpcAction.None)]
         [TestCase(1, 1, true, "available", NpcAction.None)]
-        [TestCase(1, 2, false, "available", NpcAction.None)]
-        [TestCase(1, 2, true, "available", NpcAction.None)]
+        [TestCase(1, 2, false, "available", NpcAction.RequestPurchase)]
+        [TestCase(1, 2, true, "available", NpcAction.RequestPurchase)]
         [TestCase(2, 0, false, "available", NpcAction.OfferTraining)]
         [TestCase(2, 0, true, "available", NpcAction.OfferTraining)]
         [TestCase(2, 1, false, "active", NpcAction.ReviewTraining)]
@@ -61,7 +61,7 @@ namespace MedievalCastle.Npc.Demo.Tests
                 Assert.That(result.RawJson, Is.Not.Empty);
                 if (expected == NpcAction.RequestPurchase)
                 {
-                    Assert.That(result.Decision.itemId, Is.EqualTo("castle_pass"));
+                    Assert.That(result.Decision.itemId, Is.EqualTo(preset == 0 ? "castle_pass" : "potion"));
                     Assert.That(result.Decision.quantity, Is.EqualTo(1));
                 }
                 if (expected == NpcAction.OfferTraining || expected == NpcAction.ReviewTraining)

@@ -229,6 +229,9 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             Assert.That(Panel.SelectedRole, Is.EqualTo(1));
             Panel.transform.Find("NPC questions/Option 1").GetComponent<Button>().onClick.Invoke();
             Assert.That(Panel.LastTurn.Decision.Action, Is.EqualTo(NpcAction.RequestPurchase));
+            var confirmation = Panel.transform.Find("NPC questions/Option 1").GetComponent<Button>();
+            Assert.That(confirmation.GetComponentInChildren<Text>().text, Is.EqualTo("Confirm purchase"));
+            confirmation.onClick.Invoke();
             yield return Observe(.15f, () => Assert.That(grate.transform.localPosition, Is.EqualTo(closedPosition)));
             Panel.EndTalk();
             yield return ReturnToSpawn();
@@ -249,6 +252,32 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
                 "The collider rises the same distance as the visible grate.");
             yield return ReturnToSpawn();
             yield return WalkTo(inside, () => Flat(inside - Eye.transform.position).magnitude < .20f, "opened gateway");
+        }
+
+        [UnityTest]
+        public IEnumerator MerchantShowsTheOrderAndOnlyChargesOnConfirmation()
+        {
+            yield return Approach("merchant");
+            Panel.HandleDesktopFrame(Eye, true, false);
+            Assert.That(Panel.SelectedRole, Is.EqualTo(1));
+            var card = Panel.transform.Find("NPC questions");
+            var status = card.Find("Status").GetComponent<Text>();
+            var first = card.Find("Option 1").GetComponent<Button>();
+            var second = card.Find("Option 2").GetComponent<Button>();
+            first.onClick.Invoke();
+            Assert.That(status.text, Does.Contain("Castle Pass × 1").And.Contain("Total 10 coins"));
+            Assert.That(first.GetComponentInChildren<Text>().text, Is.EqualTo("Confirm purchase"));
+            Assert.That(second.GetComponentInChildren<Text>().text, Is.EqualTo("Cancel purchase"));
+            second.onClick.Invoke();
+            Assert.That(status.text, Does.Contain("Order canceled"));
+
+            Panel.Submit("Buy two herbal tonics.");
+            Panel.HandleDesktopFrame(Eye, false, false);
+            Assert.That(status.text, Does.Contain("Herbal Tonic × 2").And.Contain("8 coins each").And.Contain("Total 16 coins"));
+            Assert.That(card.Find("Free question").gameObject.activeSelf, Is.False);
+            first.onClick.Invoke();
+            Assert.That(status.text, Does.Contain("Bought 2 × Herbal Tonic").And.Contain("Balance: 14 coins"));
+            Assert.That(card.Find("Free question").gameObject.activeSelf, Is.True);
         }
 
         [UnityTest]

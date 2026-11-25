@@ -22,6 +22,7 @@ namespace MedievalCastle.Npc.Demo
         private bool layoutValid, drawnChinese, drawnXr, drawnPending, drawnFailed, drawnVoiceUnavailable;
         private int drawnChoice, drawnPage;
         private string drawnLine, drawnOutcome;
+        private NpcGameplaySession.PurchaseOrder drawnPurchase;
         private Quaternion priorDesktopRotation;
         private float priorDesktopFov;
         private static readonly Color32 Ink = new Color32(42, 34, 26, 255);
@@ -188,10 +189,11 @@ namespace MedievalCastle.Npc.Demo
             boardCamera = eye;
             questions.worldCamera = speech.worldCamera = eye;
             questions.gameObject.SetActive(true);
+            var purchase = gameplay.PendingPurchase;
             if (!place && layoutValid && drawnChinese == chinese && drawnXr == xr &&
                 drawnPending == Pending && drawnFailed == Failed && drawnChoice == headsetChoice &&
                 drawnPage == replyPage && drawnLine == SpokenLine && drawnVoiceUnavailable == VoiceUnavailable &&
-                drawnOutcome == gameOutcome)
+                drawnOutcome == gameOutcome && drawnPurchase == purchase)
             {
                 speech.gameObject.SetActive(!string.IsNullOrEmpty(SpokenLine));
                 FacePlayer(eye);
@@ -204,9 +206,9 @@ namespace MedievalCastle.Npc.Demo
             else if (Failed) status.text = T("Unable to get a reply.", "暂时无法取得回复。");
             else
             {
-                status.text = gameOutcome;
+                status.text = purchase?.Describe(chinese) ?? gameOutcome;
                 if (VoiceUnavailable)
-                    status.text += (gameOutcome.Length == 0 ? "" : "\n") +
+                    status.text += (status.text.Length == 0 ? "" : "\n") +
                         T("Voice temporarily unavailable.", "语音暂不可用");
             }
             bool hasStatus = status.text.Length != 0;
@@ -225,7 +227,7 @@ namespace MedievalCastle.Npc.Demo
                 rowLabels[i].text = ChoiceLabel(hudChoices[i]);
                 y += RowHeight;
             }
-            bool compose = !xr && !Pending && !Failed;
+            bool compose = !xr && !Pending && !Failed && purchase == null;
             composer.gameObject.SetActive(compose);
             if (compose)
             {
@@ -254,6 +256,7 @@ namespace MedievalCastle.Npc.Demo
             drawnPage = replyPage;
             drawnLine = SpokenLine;
             drawnOutcome = gameOutcome;
+            drawnPurchase = purchase;
             if (place || switchedDisplay)
             {
                 placedRole = role;

@@ -182,6 +182,7 @@ namespace MedievalCastle.Npc.Demo
             var prior = cancellation;
             cancellation = null;
             prior?.Cancel();
+            gameplay?.FinishPurchase(service, false, chinese);
             StopVoice();
             if (InConversation && actors[role]) actors[role].EndConversation();
             role = -1;
@@ -197,7 +198,8 @@ namespace MedievalCastle.Npc.Demo
 
         internal void Submit(string text, NpcAction confirm = NpcAction.None)
         {
-            if (MenuOpen || !InConversation || Pending || string.IsNullOrWhiteSpace(text)) return;
+            if (MenuOpen || !InConversation || Pending || gameplay.PendingPurchase != null ||
+                string.IsNullOrWhiteSpace(text)) return;
             sentText = text.Trim();
             confirmedAction = confirm;
             SendSaved();

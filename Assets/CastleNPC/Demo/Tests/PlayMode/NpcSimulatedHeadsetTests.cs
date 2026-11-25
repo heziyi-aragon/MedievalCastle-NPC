@@ -177,13 +177,20 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             Assert.That(card.Find("Option 3").gameObject.activeSelf, Is.False);
             Assert.That(card.Find("Status").GetComponent<Text>().text, Does.Contain("Unable"));
             Assert.That(canvas.gameObject.activeSelf, Is.False);
-            Frame(a: true); Frame(a: true); Frame();
+            Frame(a: true); Frame(a: true);
             Assert.That(provider.Requests, Has.Count.EqualTo(2));
             Assert.That(provider.Requests[1].PlayerText, Is.EqualTo(provider.Requests[0].PlayerText));
             provider.Replies[1].SetResult("{\"reply\":\"One Castle Pass costs ten coins.\",\"action\":\"request_purchase\",\"itemId\":\"castle_pass\",\"quantity\":1,\"questId\":\"\"}");
             deadline = Time.realtimeSinceStartup + 3f;
             while (Panel.LastTurn == null && Time.realtimeSinceStartup < deadline) yield return null;
             Assert.That(Panel.LastTurn.Decision.Action, Is.EqualTo(NpcAction.RequestPurchase));
+            yield return new WaitForSecondsRealtime(.12f);
+            Frame(a: true);
+            Assert.That(card.Find("Option 1/Label").GetComponent<Text>().text, Is.EqualTo("Confirm purchase"));
+            Assert.That(card.Find("Status").GetComponent<Text>().text, Does.Contain("Total 10 coins"));
+            Frame(); Frame(a: true); Frame(a: true);
+            Assert.That(card.Find("Status").GetComponent<Text>().text, Does.Contain("Balance: 20 coins"));
+            Assert.That(provider.Requests, Has.Count.EqualTo(2), "Confirmation is handled by Unity.");
         }
     }
 }

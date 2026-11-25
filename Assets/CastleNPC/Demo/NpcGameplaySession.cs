@@ -11,6 +11,27 @@ namespace MedievalCastle.Npc.Demo
     {
         private readonly CastleGame game;
         internal bool GateOpen => game.GateOpen;
+        internal PurchaseOrder PendingPurchase { get; private set; }
+
+        internal sealed class PurchaseOrder
+        {
+            internal readonly string TurnId;
+            internal readonly string ItemId;
+            internal readonly int Quantity;
+            internal readonly int Total;
+
+            internal PurchaseOrder(string turnId, string itemId, int quantity, int total)
+            {
+                TurnId = turnId;
+                ItemId = itemId;
+                Quantity = quantity;
+                Total = total;
+            }
+
+            internal string Describe(bool chinese) => chinese
+                ? $"{ChineseItemName(ItemId)} × {Quantity}\n单价 {Total / Quantity} 枚 · 总价 {Total} 枚铜币"
+                : $"{CastleGame.ItemName(ItemId)} × {Quantity}\n{Total / Quantity} coins each · Total {Total} coins";
+        }
 
         internal NpcGameplaySession(CastleGame game)
         {
@@ -34,8 +55,8 @@ namespace MedievalCastle.Npc.Demo
                 }).ToArray(),
                 catalog = new[]
                 {
-                    new NpcCatalogItem { itemId = CastleGame.PassId, price = CastleGame.PassPrice, name = CastleGame.ItemName(CastleGame.PassId), nameZh = "城门通行证" },
-                    new NpcCatalogItem { itemId = CastleGame.PotionId, price = CastleGame.PotionPrice, name = CastleGame.ItemName(CastleGame.PotionId), nameZh = "草药药水" }
+                    new NpcCatalogItem { itemId = CastleGame.PassId, price = CastleGame.PassPrice, name = CastleGame.ItemName(CastleGame.PassId), nameZh = ChineseItemName(CastleGame.PassId) },
+                    new NpcCatalogItem { itemId = CastleGame.PotionId, price = CastleGame.PotionPrice, name = CastleGame.ItemName(CastleGame.PotionId), nameZh = ChineseItemName(CastleGame.PotionId) }
                 },
                 questId = NpcDemoScenario.DrillId,
                 trainingStatus = game.Quest switch
@@ -59,6 +80,32 @@ namespace MedievalCastle.Npc.Demo
             return outcome;
         }
 
+        internal string FinishPurchase(NpcDialogueService service, bool confirm, bool chinese)
+        {
+            var order = PendingPurchase;
+            if (order == null) return "";
+            PendingPurchase = null;
+
+            string outcome;
+            if (confirm)
+            {
+                var purchase = game.Execute(order.TurnId, NpcRole.Merchant, new CastleAction
+                {
+                    type = "BUY_ITEM",
+                    itemId = order.ItemId,
+                    quantity = order.Quantity
+                });
+                outcome = purchase.Success
+                    ? (chinese ? $"已购买 {ChineseItemName(order.ItemId)} × {order.Quantity}。余额：{game.Gold} 枚铜币。"
+                        : $"Bought {order.Quantity} × {CastleGame.ItemName(order.ItemId)}. Balance: {game.Gold} coins.")
+                    : purchase.MessageFor(chinese);
+            }
+            else outcome = chinese ? "已取消订单。" : "Order canceled.";
+
+            service.ReportDecisionResult(order.TurnId, outcome);
+            return outcome;
+        }
+
         private string Resolve(string npcId, NpcTurnResult turn, NpcAction confirmedAction, bool chinese)
         {
             string T(string english, string zh) => chinese ? zh : english;
@@ -72,19 +119,10 @@ namespace MedievalCastle.Npc.Demo
                     return check.Success ? T("Castle Pass verified.", "通行证已核验。")
                         : T(check.Message, "请先向商人购买城门通行证。");
                 case NpcAction.RequestPurchase when npcId == "merchant":
-                    if (proposal.itemId != CastleGame.PassId || proposal.quantity != 1)
-                        return T("This order is unavailable.", "此订单暂不可执行。");
-                    if (confirmedAction != proposal.Action)
-                        return T("Choose Buy one Castle Pass to place the order.", "请选择「买一张城门通行证」下单。");
-                    var purchase = game.Execute(turn.TurnId, NpcRole.Merchant, new CastleAction
-                    {
-                        type = "BUY_ITEM",
-                        itemId = proposal.itemId,
-                        quantity = proposal.quantity
-                    });
-                    if (purchase.Success)
-                        return T($"Castle Pass added. Balance: {game.Gold} coins.", $"通行证已加入背包。余额：{game.Gold} 枚铜币。");
-                    return T(purchase.Message, "订单未完成，请检查余额和背包。");
+                    var quote = game.QuotePurchase(proposal.itemId, proposal.quantity, out int total);
+                    if (!quote.Success) return quote.MessageFor(chinese);
+                    PendingPurchase = new PurchaseOrder(turn.TurnId, proposal.itemId, proposal.quantity, total);
+                    return "";
                 case NpcAction.OfferTraining when npcId == "knight" && proposal.questId == NpcDemoScenario.DrillId:
                     if (confirmedAction != proposal.Action)
                         return T("Choose Start courtyard training to accept.", "请选择「开始庭院操练」接下任务。");
@@ -98,5 +136,7 @@ namespace MedievalCastle.Npc.Demo
                     return T("This NPC cannot perform that action.", "这个角色无法执行该动作。");
             }
         }
+
+        private static string ChineseItemName(string id) => id == CastleGame.PassId ? "城门通行证" : "草药药水";
     }
 }

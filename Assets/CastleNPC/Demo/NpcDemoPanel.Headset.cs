@@ -6,7 +6,7 @@ namespace MedievalCastle.Npc.Demo
 {
     public sealed partial class NpcDemoPanel
     {
-        private enum HudChoice { Prompt1, Prompt2, Prompt3, NextPage, Retry, End }
+        private enum HudChoice { Prompt1, Prompt2, Prompt3, NextPage, Retry, ConfirmPurchase, CancelPurchase, End }
         private readonly HudChoice[] hudChoices = new HudChoice[5];
 
         private int choiceCount, headsetChoice, menuChoice, replyPage;
@@ -95,6 +95,12 @@ namespace MedievalCastle.Npc.Demo
         {
             choiceCount = 0;
             if (Failed) hudChoices[choiceCount++] = HudChoice.Retry;
+            else if (gameplay.PendingPurchase != null)
+            {
+                hudChoices[choiceCount++] = HudChoice.ConfirmPurchase;
+                hudChoices[choiceCount++] = HudChoice.CancelPurchase;
+                if (HasPages) hudChoices[choiceCount++] = HudChoice.NextPage;
+            }
             else if (!Pending)
             {
                 if (HasPages) hudChoices[choiceCount++] = HudChoice.NextPage;
@@ -112,6 +118,8 @@ namespace MedievalCastle.Npc.Demo
                 case HudChoice.Prompt1: case HudChoice.Prompt2: case HudChoice.Prompt3: return Prompt((int)choice);
                 case HudChoice.NextPage: return T("Next page", "翻页");
                 case HudChoice.Retry: return T("Retry", "重试");
+                case HudChoice.ConfirmPurchase: return T("Confirm purchase", "确认购买");
+                case HudChoice.CancelPurchase: return T("Cancel purchase", "取消购买");
                 default: return T("End conversation", "结束交谈");
             }
         }
@@ -121,19 +129,16 @@ namespace MedievalCastle.Npc.Demo
             switch (choice)
             {
                 case HudChoice.Prompt1:
-                    var confirmed = actors[role].RoleId switch
-                    {
-                        "merchant" => NpcAction.RequestPurchase,
-                        "knight" => NpcAction.OfferTraining,
-                        _ => NpcAction.None
-                    };
-                    Submit(Prompt(0), confirmed);
+                    Submit(Prompt(0), actors[role].RoleId == "knight" ? NpcAction.OfferTraining : NpcAction.None);
                     break;
                 case HudChoice.Prompt2: case HudChoice.Prompt3: Submit(Prompt((int)choice)); break;
                 case HudChoice.NextPage:
                     if (HasPages) replyPage = (replyPage + 1) % ((SpokenLine.Length + PageLength - 1) / PageLength);
                     break;
                 case HudChoice.Retry: Retry(); break;
+                case HudChoice.ConfirmPurchase: case HudChoice.CancelPurchase:
+                    gameOutcome = gameplay.FinishPurchase(service, choice == HudChoice.ConfirmPurchase, chinese);
+                    break;
                 case HudChoice.End: EndTalkWithFarewell(); break;
             }
         }

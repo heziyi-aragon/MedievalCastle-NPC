@@ -3,7 +3,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
 using UnityEngine;
+using CastleAction = MedievalCastle.Mechanics.NpcAction;
 using CastleGame = MedievalCastle.Mechanics.CastleGame;
+using CastleRole = MedievalCastle.Mechanics.NpcRole;
 
 namespace MedievalCastle.Npc.Demo.Tests
 {
@@ -46,8 +48,10 @@ namespace MedievalCastle.Npc.Demo.Tests
 
             var proposed = Send("merchant", NpcDemoScenario.Prompt(1, 0, chinese), chinese);
             Assert.That(proposed.Decision.itemId, Is.EqualTo(CastleGame.PassId));
-            gameplay.Apply(dialogue, "merchant", proposed, NpcAction.RequestPurchase, chinese);
-            gameplay.Apply(dialogue, "merchant", proposed, NpcAction.RequestPurchase, chinese);
+            gameplay.Apply(dialogue, "merchant", proposed, NpcAction.None, chinese);
+            Assert.That(gameplay.Snapshot().hasPass, Is.False, "A quote has not delivered the pass.");
+            gameplay.FinishPurchase(dialogue, true, chinese);
+            Assert.That(gameplay.FinishPurchase(dialogue, true, chinese), Is.Empty, "A consumed order cannot be confirmed again.");
             var after = gameplay.Snapshot();
             Assert.That(after.coins, Is.EqualTo(20));
             Assert.That(after.hasPass, Is.True);
@@ -66,21 +70,88 @@ namespace MedievalCastle.Npc.Demo.Tests
         }
 
         [Test]
-        public void AQuoteOrAnUnconfirmedPurchaseDoesNotSpendCoins()
+        public void BrowsingAndCancellingDoNotChangeTheBalance()
         {
             var quote = Send("merchant", NpcDemoScenario.Prompt(1, 1, false));
             Assert.That(quote.Decision.Action, Is.EqualTo(NpcAction.None));
             Assert.That(quote.Reply, Does.Contain("8"));
             gameplay.Apply(dialogue, "merchant", quote, NpcAction.None, false);
+            Assert.That(gameplay.PendingPurchase, Is.Null);
             var proposed = Send("merchant", "Buy one Castle Pass.");
             Assert.That(proposed.Decision.Action, Is.EqualTo(NpcAction.RequestPurchase));
             gameplay.Apply(dialogue, "merchant", proposed, NpcAction.None, false);
-
-            var anotherItem = Send("merchant", "Buy one herbal tonic.");
-            Assert.That(anotherItem.Decision.itemId, Is.EqualTo(CastleGame.PotionId));
-            gameplay.Apply(dialogue, "merchant", anotherItem, NpcAction.RequestPurchase, false);
+            Assert.That(gameplay.PendingPurchase.Total, Is.EqualTo(10));
             Assert.That(gameplay.Snapshot().coins, Is.EqualTo(30));
+            string cancellation = gameplay.FinishPurchase(dialogue, false, false);
+            Assert.That(gameplay.PendingPurchase, Is.Null);
+            Assert.That(gameplay.FinishPurchase(dialogue, true, false), Is.Empty);
             Assert.That(gameplay.Snapshot().inventory, Is.Empty);
+
+            var recorder = new Recorder("{\"reply\":\"Which item?\",\"action\":\"none\",\"itemId\":\"\",\"quantity\":0,\"questId\":\"\"}");
+            dialogue.SetProviderForTesting(recorder);
+            Send("merchant", "What do you sell?");
+            Assert.That(recorder.Request.Messages.Last().content, Does.Contain(cancellation));
+            Assert.That(gameplay.Snapshot().coins, Is.EqualTo(30));
+        }
+
+        [TestCase("Buy two herbal tonics.", false)]
+        [TestCase("买两瓶草药药水。", true)]
+        public void MultipleTonicsUseTheCatalogPriceAndChargeOnce(string text, bool chinese)
+        {
+            var proposed = Send("merchant", text, chinese);
+            Assert.That(proposed.Decision.itemId, Is.EqualTo(CastleGame.PotionId));
+            gameplay.Apply(dialogue, "merchant", proposed, NpcAction.None, chinese);
+            var order = gameplay.PendingPurchase;
+            Assert.That(order.Quantity, Is.EqualTo(2));
+            Assert.That(order.Total, Is.EqualTo(16));
+            Assert.That(order.Describe(chinese), Does.Contain("16"));
+            Assert.That(gameplay.Snapshot().coins, Is.EqualTo(30));
+
+            string receipt = gameplay.FinishPurchase(dialogue, true, chinese);
+            Assert.That(receipt, Does.Contain("14"));
+            Assert.That(gameplay.FinishPurchase(dialogue, true, chinese), Is.Empty);
+            var after = gameplay.Snapshot();
+            Assert.That(after.coins, Is.EqualTo(14));
+            Assert.That(after.inventory.Single().itemId, Is.EqualTo(CastleGame.PotionId));
+            Assert.That(after.inventory.Single().quantity, Is.EqualTo(2));
+            Assert.That(after.hasPass, Is.False);
+            Assert.That(after.passVerified, Is.False);
+
+            var recorder = new Recorder("{\"reply\":\"I sell tonics.\",\"action\":\"none\",\"itemId\":\"\",\"quantity\":0,\"questId\":\"\"}");
+            dialogue.SetProviderForTesting(recorder);
+            Send("merchant", "What do you sell?", chinese);
+            Assert.That(recorder.Request.Messages.Last().content, Does.Contain(receipt));
+            Assert.That(recorder.Request.State.coins, Is.EqualTo(14));
+        }
+
+        [Test]
+        public void AQuoteIsRevalidatedAgainstTheBalanceAtConfirmation()
+        {
+            var proposed = Send("merchant", "Buy two herbal tonics.");
+            gameplay.Apply(dialogue, "merchant", proposed, NpcAction.None, false);
+            Assert.That(gameplay.PendingPurchase, Is.Not.Null);
+
+            var otherPurchase = game.Execute("other-purchase", CastleRole.Merchant, new CastleAction
+            {
+                type = "BUY_ITEM", itemId = CastleGame.PotionId, quantity = 2
+            });
+            Assert.That(otherPurchase.Success, Is.True);
+            Assert.That(gameplay.FinishPurchase(dialogue, true, false), Does.Contain("2 more"));
+            Assert.That(gameplay.PendingPurchase, Is.Null);
+            Assert.That(gameplay.Snapshot().coins, Is.EqualTo(14));
+            Assert.That(gameplay.Snapshot().inventory.Single().quantity, Is.EqualTo(2));
+        }
+
+        [TestCase("Buy two Castle Passes.", "one Castle Pass")]
+        [TestCase("Buy ten herbal tonics.", "1 to 9")]
+        [TestCase("Buy four herbal tonics.", "2 more")]
+        public void InvalidOrdersDoNotOfferAConfirmation(string text, string reason)
+        {
+            var proposed = Send("merchant", text);
+            Assert.That(proposed.Decision.Action, Is.EqualTo(NpcAction.RequestPurchase));
+            Assert.That(gameplay.Apply(dialogue, "merchant", proposed, NpcAction.None, false), Does.Contain(reason));
+            Assert.That(gameplay.PendingPurchase, Is.Null);
+            Assert.That(gameplay.Snapshot().coins, Is.EqualTo(30));
         }
 
         [Test]
@@ -92,7 +163,8 @@ namespace MedievalCastle.Npc.Demo.Tests
             Assert.That(gameplay.Snapshot().trainingStatus, Is.EqualTo("available"));
 
             var order = Send("merchant", NpcDemoScenario.Prompt(1, 0, false));
-            gameplay.Apply(dialogue, "merchant", order, NpcAction.RequestPurchase, false);
+            gameplay.Apply(dialogue, "merchant", order, NpcAction.None, false);
+            gameplay.FinishPurchase(dialogue, true, false);
             var check = Send("guard", NpcDemoScenario.Prompt(0, 0, false));
             gameplay.Apply(dialogue, "guard", check, NpcAction.None, false);
             var offer = Send("knight", training);
