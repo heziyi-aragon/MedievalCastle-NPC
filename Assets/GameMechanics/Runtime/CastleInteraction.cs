@@ -218,17 +218,22 @@ namespace MedievalCastle.Mechanics
         {
             gate.IsOpen = game.GateOpen;
             PlayerSnapshot state = game.Snapshot();
-            hud.Refresh(state);
+            CastleObjective goal = game.Objective;
+            hud.Refresh(state, goal);
             if (speaker != null) hud.SetSuggestions(speaker.role, state);
 
-            if (game.Quest == QuestStage.InProgress)
+            if (goal == CastleObjective.VisitMarker)
                 objectiveTarget = trainingPoints[game.TrainingProgress];
-            else if (game.Quest == QuestStage.Rewarded)
+            else if (goal == CastleObjective.Rewarded)
                 objectiveTarget = null;
             else
             {
-                bool hasPass = Array.Exists(state.inventory, item => item.itemId == CastleGame.PassId);
-                NpcRole role = game.GateOpen ? NpcRole.Knight : hasPass ? NpcRole.Guard : NpcRole.Merchant;
+                NpcRole role = goal switch
+                {
+                    CastleObjective.GetPass => NpcRole.Merchant,
+                    CastleObjective.VerifyPass => NpcRole.Guard,
+                    _ => NpcRole.Knight
+                };
                 NpcActor actor = Array.Find(actors, item => item != null && item.isActiveAndEnabled && item.role == role);
                 objectiveTarget = actor != null ? actor.transform : null;
             }

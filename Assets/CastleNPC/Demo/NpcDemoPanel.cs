@@ -86,6 +86,7 @@ namespace MedievalCastle.Npc.Demo
         {
             if (chinese == useChinese) return;
             chinese = useChinese;
+            nextDesktopHudDraw = nextHudDraw = 0;
             PlayerPrefs.SetString(LanguageKey, chinese ? "zh" : "en");
             PlayerPrefs.Save();
         }
@@ -156,9 +157,7 @@ namespace MedievalCastle.Npc.Demo
 
         internal string ExploreText(bool headset)
         {
-            if (!Nearby)
-                return gameplay.CanClaimTrainingReward ? T("Drill complete. Return to the knight.", "操练完成。请回去找骑士。")
-                    : string.Empty;
+            if (!Nearby) return string.Empty;
             if (obstructedRole == nearRole) return T("Step to one side to talk.", "向旁边走一步再交谈。");
             string name = RoleName(nearRole);
             return (headset ? "A" : "E") + (chinese ? " · 与" + name + "交谈" : " · Talk to " + name);
@@ -262,6 +261,7 @@ namespace MedievalCastle.Npc.Demo
             MenuOpen = false;
             EndTalk();
             if (trainingMarker) trainingMarker.gameObject.SetActive(false);
+            if (desktopGameplayHud) desktopGameplayHud.gameObject.SetActive(false);
             if (headsetCanvas) headsetCanvas.gameObject.SetActive(false);
         }
 

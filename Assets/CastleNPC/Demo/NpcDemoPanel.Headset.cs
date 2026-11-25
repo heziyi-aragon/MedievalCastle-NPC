@@ -15,7 +15,7 @@ namespace MedievalCastle.Npc.Demo
         private Camera headsetCamera;
         private Canvas headsetCanvas;
         private RectTransform hudRect;
-        private Text hudBody;
+        private Text hudObjective, hudDirection, hudWallet, hudBag, hudBody;
 
         private void UpdateHeadset()
         {
@@ -82,7 +82,7 @@ namespace MedievalCastle.Npc.Demo
 
             if (menu || confirm || navigate || previousNearby != Nearby || wasTalking != InConversation || Time.unscaledTime >= nextHudDraw)
             {
-                nextHudDraw = Time.unscaledTime + .1f;
+                nextHudDraw = Time.unscaledTime + HudRefreshInterval;
                 PaintHud();
             }
             else if (InConversation && !MenuOpen && questions) FacePlayer(camera);
@@ -154,23 +154,25 @@ namespace MedievalCastle.Npc.Demo
         private void PaintHud()
         {
             RefreshWorldCards(headsetCamera, true);
-            if (MenuOpen)
+            if (MenuOpen || InConversation)
             {
                 headsetCanvas.gameObject.SetActive(false);
-                ShowLanguageSheet(headsetCamera, true);
+                if (MenuOpen) ShowLanguageSheet(headsetCamera, true);
                 return;
             }
-            string line = InConversation ? "" : ExploreText(true);
-            headsetCanvas.gameObject.SetActive(line.Length != 0);
-            if (line.Length != 0)
-            {
-                float height = SetHudLine(hudBody, 10, line, 84);
-                hudRect.sizeDelta = new Vector2(740, height + 10);
-            }
+
+            headsetCanvas.gameObject.SetActive(true);
+            var text = GetGameplayHudText(headsetCamera);
+            float height = SetHudLine(hudObjective, 10, text.objective, 60);
+            height = SetHudLine(hudDirection, height, text.direction, 34);
+            height = SetHudLine(hudWallet, height + 4, text.wallet, 35);
+            height = SetHudLine(hudBag, height, text.bag, 60);
+            height = SetHudLine(hudBody, height + 4, ExploreText(true), 60);
+            hudRect.sizeDelta = new Vector2(680, height + 8);
         }
         private static float SetHudLine(Text text, float top, string value, float maxHeight)
         {
-            text.text = value;
+            if (text.text != value) text.text = value;
             bool visible = !string.IsNullOrEmpty(value);
             if (text.gameObject.activeSelf != visible) text.gameObject.SetActive(visible);
             if (!visible) return top;
@@ -186,17 +188,20 @@ namespace MedievalCastle.Npc.Demo
             var panel = new GameObject("NPC exploration hint", typeof(RectTransform), typeof(Canvas), typeof(Image));
             hudRect = (RectTransform)panel.transform;
             hudRect.SetParent(camera.transform, false);
-            // Only the brief exploration hint follows the headset.
             hudRect.pivot = new Vector2(.5f, 1f);
-            hudRect.localPosition = new Vector3(0, -.12f, 1.10f);
-            hudRect.localScale = Vector3.one * .00122f;
-            hudRect.sizeDelta = new Vector2(740, 104);
+            hudRect.localPosition = new Vector3(0, -.20f, 1.10f);
+            hudRect.localScale = Vector3.one * .00113f;
+            hudRect.sizeDelta = new Vector2(680, 180);
             var background = panel.GetComponent<Image>();
             background.color = PanelColor;
             background.raycastTarget = false;
             headsetCanvas = panel.GetComponent<Canvas>();
             headsetCanvas.renderMode = RenderMode.WorldSpace;
             headsetCanvas.worldCamera = camera;
+            hudObjective = AddHudLine("Objective", 26, Parchment);
+            hudDirection = AddHudLine("Direction", 21, AccentColor);
+            hudWallet = AddHudLine("Wallet", 23, Parchment);
+            hudBag = AddHudLine("Backpack", 21, MutedColor);
             hudBody = AddHudLine("Hint", 25, Color.white);
             nextHudDraw = 0;
         }

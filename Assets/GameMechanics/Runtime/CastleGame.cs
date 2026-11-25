@@ -6,6 +6,7 @@ namespace MedievalCastle.Mechanics
 {
     public enum NpcRole { Guard, Merchant, Knight }
     public enum QuestStage { Available, InProgress, Complete, Rewarded }
+    public enum CastleObjective { GetPass, VerifyPass, StartTraining, VisitMarker, ClaimReward, Rewarded }
 
     [Serializable]
     public sealed class NpcAction
@@ -96,6 +97,15 @@ namespace MedievalCastle.Mechanics
         public QuestStage Quest { get; private set; }
         public int TrainingProgress { get; private set; }
         public int TrainingTotal => trainingTotal;
+        public CastleObjective Objective => Quest switch
+        {
+            QuestStage.InProgress => CastleObjective.VisitMarker,
+            QuestStage.Complete => CastleObjective.ClaimReward,
+            QuestStage.Rewarded => CastleObjective.Rewarded,
+            _ when GateOpen => CastleObjective.StartTraining,
+            _ when inventory.ContainsKey(PassId) => CastleObjective.VerifyPass,
+            _ => CastleObjective.GetPass
+        };
 
         public CastleGame(int initialGold, int trainingTotal)
         {

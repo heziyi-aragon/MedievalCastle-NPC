@@ -255,6 +255,29 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
         }
 
         [UnityTest]
+        public IEnumerator DesktopHudUsesTheViewHeadingAndHidesDuringSettings()
+        {
+            var heading = Flat(Actor("merchant").transform.position - Eye.transform.position);
+            Eye.transform.rotation = Quaternion.LookRotation(heading);
+            Panel.HandleDesktopFrame(Eye, false, false);
+            yield return new WaitForSecondsRealtime(.12f);
+            var hud = Panel.transform.Find("Castle gameplay HUD");
+            var direction = hud.Find("Objective/Direction").GetComponent<Text>();
+            Assert.That(direction.text, Does.Contain("ahead"));
+            Eye.transform.rotation = Quaternion.LookRotation(-heading);
+            yield return new WaitForSecondsRealtime(.12f);
+            Assert.That(direction.text, Does.Contain("behind"));
+
+            Panel.HandleDesktopFrame(Eye, false, true);
+            Assert.That(hud.gameObject.activeSelf, Is.False);
+            Panel.SetLanguage(true);
+            Panel.HandleDesktopFrame(Eye, false, true);
+            Assert.That(hud.gameObject.activeSelf, Is.True);
+            Assert.That(direction.text, Does.Contain("后方"));
+            Assert.That(hud.Find("Objective/Current objective").GetComponent<Text>().text, Is.EqualTo("向商人购买通行证"));
+        }
+
+        [UnityTest]
         public IEnumerator MerchantShowsTheOrderAndOnlyChargesOnConfirmation()
         {
             yield return Approach("merchant");
@@ -278,11 +301,19 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             first.onClick.Invoke();
             Assert.That(status.text, Does.Contain("Bought 2 × Herbal Tonic").And.Contain("Balance: 14 coins"));
             Assert.That(card.Find("Free question").gameObject.activeSelf, Is.True);
+            Panel.EndTalk();
+            Panel.HandleDesktopFrame(Eye, false, false);
+            var hud = Panel.transform.Find("Castle gameplay HUD");
+            Assert.That(hud.Find("Inventory/Wallet").GetComponent<Text>().text, Does.Contain("14 coins"));
+            Assert.That(hud.Find("Inventory/Backpack").GetComponent<Text>().text, Is.EqualTo("Herbal Tonic ×2"));
+            Assert.That(hud.Find("Objective/Current objective").GetComponent<Text>().text, Does.Contain("merchant"));
         }
 
         [UnityTest]
         public IEnumerator KnightDrillFollowsTheSceneMarkersAndCanBeClaimedWithTheHeadset()
         {
+            var hud = Panel.transform.Find("Castle gameplay HUD");
+            string Hud(string path) => hud.Find(path).GetComponent<Text>().text;
             yield return Approach("merchant");
             Panel.HandleDesktopFrame(Eye, true, false);
             var card = Panel.transform.Find("NPC questions");
@@ -292,12 +323,17 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             first.onClick.Invoke();
             first.onClick.Invoke();
             Panel.EndTalk();
+            Panel.HandleDesktopFrame(Eye, false, false);
+            Assert.That(Hud("Inventory/Backpack"), Is.EqualTo("Castle Pass ×1"));
+            Assert.That(Hud("Objective/Current objective"), Does.Contain("guard"));
             yield return ReturnToSpawn();
 
             yield return Approach("guard");
             Begin("guard");
             Panel.Submit(NpcDemoScenario.Prompt(0, 0, false));
             Panel.EndTalk();
+            Panel.HandleDesktopFrame(Eye, false, false);
+            Assert.That(Hud("Objective/Current objective"), Does.Contain("knight"));
 
             yield return Approach("knight");
             Panel.HandleDesktopFrame(Eye, true, false);
@@ -307,6 +343,7 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             Assert.That(third.text, Is.Not.EqualTo("Confirm reward"));
             Panel.EndTalk();
             yield return null;
+            Assert.That(Hud("Objective/Current objective"), Does.Contain("0/3").And.Contain("marker 1"));
 
             var points = Castle.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<Transform>())
                 .Where(t => t.name.StartsWith("Training Marker ")).OrderBy(t => t.name).ToArray();
@@ -325,11 +362,11 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             for (int i = 0; i < points.Length; i++)
             {
                 yield return WalkNear(points[i].position);
-                yield return null;
+                yield return new WaitForSecondsRealtime(.12f);
                 if (i + 1 < points.Length) Assert.That(number.text, Is.EqualTo((i + 2).ToString()));
             }
             Assert.That(marker.gameObject.activeSelf, Is.False);
-            Assert.That(Panel.ExploreText(false), Does.Contain("Return to the knight"));
+            Assert.That(Hud("Objective/Current objective"), Does.Contain("3/3").And.Contain("Return to the knight"));
 
             yield return WalkNear(new Vector3(-7f, 0, 34.5f));
             yield return WalkNear(new Vector3(-7f, 0, 27.2f));
@@ -343,6 +380,12 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             Panel.HandleHeadsetFrame(Eye, true, true, false, 0);
             Assert.That(status.text, Does.Contain("+20 gold").And.Contain("+5 reputation"));
             Assert.That(third.text, Is.Not.EqualTo("Confirm reward"));
+            Panel.EndTalk();
+            Panel.HandleHeadsetFrame(Eye, true, false, false, 0);
+            var headsetHud = Eye.transform.Find("NPC exploration hint");
+            Assert.That(headsetHud.Find("Wallet").GetComponent<Text>().text, Does.Contain("40 coins").And.Contain("5 rep"));
+            Assert.That(headsetHud.Find("Objective").GetComponent<Text>().text, Does.Contain("Reward collected"));
+            Assert.That(headsetHud.Find("Direction").gameObject.activeSelf, Is.False);
         }
 
         [UnityTest]

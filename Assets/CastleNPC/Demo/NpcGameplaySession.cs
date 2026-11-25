@@ -2,7 +2,9 @@ using System;
 using System.Linq;
 using CastleAction = MedievalCastle.Mechanics.NpcAction;
 using CastleGame = MedievalCastle.Mechanics.CastleGame;
+using CastleObjective = MedievalCastle.Mechanics.CastleObjective;
 using NpcRole = MedievalCastle.Mechanics.NpcRole;
+using PlayerSnapshot = MedievalCastle.Mechanics.PlayerSnapshot;
 using QuestStage = MedievalCastle.Mechanics.QuestStage;
 
 namespace MedievalCastle.Npc.Demo
@@ -10,6 +12,7 @@ namespace MedievalCastle.Npc.Demo
     internal sealed class NpcGameplaySession
     {
         private readonly CastleGame game;
+        internal CastleObjective Objective => game.Objective;
         internal bool GateOpen => game.GateOpen;
         internal int NextTrainingPoint => game.Quest == QuestStage.InProgress ? game.TrainingProgress : -1;
         internal bool CanClaimTrainingReward => game.Quest == QuestStage.Complete;
@@ -40,9 +43,11 @@ namespace MedievalCastle.Npc.Demo
             this.game = game ?? throw new ArgumentNullException(nameof(game));
         }
 
+        internal PlayerSnapshot ReadPlayer() => game.Snapshot();
+
         internal NpcPlayerState Snapshot()
         {
-            var state = game.Snapshot();
+            var state = ReadPlayer();
             return new NpcPlayerState
             {
                 playerId = "castle_player",
@@ -162,6 +167,6 @@ namespace MedievalCastle.Npc.Demo
             }
         }
 
-        private static string ChineseItemName(string id) => id == CastleGame.PassId ? "城门通行证" : "草药药水";
+        internal static string ChineseItemName(string id) => id == CastleGame.PassId ? "城门通行证" : "草药药水";
     }
 }
