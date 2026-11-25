@@ -21,7 +21,7 @@ namespace MedievalCastle.Npc.Demo
         private Vector3 obstructedAt;
         private bool layoutValid, drawnChinese, drawnXr, drawnPending, drawnFailed, drawnVoiceUnavailable;
         private int drawnChoice, drawnPage;
-        private string drawnLine;
+        private string drawnLine, drawnOutcome;
         private Quaternion priorDesktopRotation;
         private float priorDesktopFov;
         private static readonly Color32 Ink = new Color32(42, 34, 26, 255);
@@ -190,7 +190,8 @@ namespace MedievalCastle.Npc.Demo
             questions.gameObject.SetActive(true);
             if (!place && layoutValid && drawnChinese == chinese && drawnXr == xr &&
                 drawnPending == Pending && drawnFailed == Failed && drawnChoice == headsetChoice &&
-                drawnPage == replyPage && drawnLine == SpokenLine && drawnVoiceUnavailable == VoiceUnavailable)
+                drawnPage == replyPage && drawnLine == SpokenLine && drawnVoiceUnavailable == VoiceUnavailable &&
+                drawnOutcome == gameOutcome)
             {
                 speech.gameObject.SetActive(!string.IsNullOrEmpty(SpokenLine));
                 FacePlayer(eye);
@@ -201,11 +202,18 @@ namespace MedievalCastle.Npc.Demo
             questionTitle.text = RoleName(role);
             if (Pending) status.text = T("Waiting for a reply…", "正在等待回复…");
             else if (Failed) status.text = T("Unable to get a reply.", "暂时无法取得回复。");
-            else if (VoiceUnavailable) status.text = T("Voice temporarily unavailable.", "语音暂不可用");
-            else status.text = string.Empty;
+            else
+            {
+                status.text = gameOutcome;
+                if (VoiceUnavailable)
+                    status.text += (gameOutcome.Length == 0 ? "" : "\n") +
+                        T("Voice temporarily unavailable.", "语音暂不可用");
+            }
             bool hasStatus = status.text.Length != 0;
             status.gameObject.SetActive(hasStatus);
-            float y = hasStatus ? 87 : 47;
+            float statusHeight = Mathf.Max(40f, status.preferredHeight + 4f);
+            Box(status.rectTransform, 18, 44, 484, statusHeight);
+            float y = hasStatus ? 47 + statusHeight : 47;
             for (int i = 0; i < rows.Length; i++)
             {
                 rows[i].gameObject.SetActive(i < choiceCount);
@@ -245,6 +253,7 @@ namespace MedievalCastle.Npc.Demo
             drawnChoice = headsetChoice;
             drawnPage = replyPage;
             drawnLine = SpokenLine;
+            drawnOutcome = gameOutcome;
             if (place || switchedDisplay)
             {
                 placedRole = role;

@@ -12,7 +12,9 @@ namespace MedievalCastle.Npc
     {
         public string playerId;
         public bool hasPass;
+        public bool passVerified;
         public int coins;
+        public int reputation;
         public NpcInventoryItem[] inventory = Array.Empty<NpcInventoryItem>();
         public NpcCatalogItem[] catalog = Array.Empty<NpcCatalogItem>();
         public string questId = "courtyard_drill";
@@ -33,6 +35,8 @@ namespace MedievalCastle.Npc
     {
         public string itemId;
         public int price;
+        public string name;
+        public string nameZh;
     }
 
     [Serializable]

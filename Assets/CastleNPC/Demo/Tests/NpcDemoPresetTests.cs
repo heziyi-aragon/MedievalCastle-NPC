@@ -61,7 +61,7 @@ namespace MedievalCastle.Npc.Demo.Tests
                 Assert.That(result.RawJson, Is.Not.Empty);
                 if (expected == NpcAction.RequestPurchase)
                 {
-                    Assert.That(result.Decision.itemId, Is.EqualTo("bread"));
+                    Assert.That(result.Decision.itemId, Is.EqualTo("castle_pass"));
                     Assert.That(result.Decision.quantity, Is.EqualTo(1));
                 }
                 if (expected == NpcAction.OfferTraining || expected == NpcAction.ReviewTraining)

@@ -22,7 +22,7 @@ namespace MedievalCastle.Npc.Demo
         private readonly Collider[][] shapes = new Collider[3][];
         private readonly RaycastHit[] sightHits = new RaycastHit[32];
         private NpcDialogueService service;
-        private NpcPlayerState state;
+        private NpcGameplaySession gameplay;
         private Transform viewer;
         private Font font;
         private CancellationTokenSource cancellation;
@@ -30,6 +30,8 @@ namespace MedievalCastle.Npc.Demo
         private int role = -1, nearRole = -1;
         private bool chinese, failed;
         private string sentText = "";
+        private NpcAction confirmedAction;
+        private string gameOutcome = "";
 
         internal bool MenuOpen { get; private set; }
         internal bool InConversation => role >= 0;
@@ -47,7 +49,7 @@ namespace MedievalCastle.Npc.Demo
         {
             service = GetComponent<NpcDialogueService>();
             service.Mode = NpcProviderMode.DeepSeek;
-            state = NpcDemoScenario.MakeState();
+            gameplay = NpcDemoScenario.CreateGameplay();
             chinese = PlayerPrefs.GetString(LanguageKey, "en") == "zh";
             foreach (var actor in GetComponentsInChildren<CastleNpcCharacter>(true))
             {
@@ -183,16 +185,19 @@ namespace MedievalCastle.Npc.Demo
             role = -1;
             viewer = null;
             sentText = "";
+            confirmedAction = NpcAction.None;
+            gameOutcome = "";
             failed = false;
             result = null;
             CastlePlayerMotor.MovementLocked = MenuOpen;
             ResetDialoguePresentation();
         }
 
-        internal void Submit(string text)
+        internal void Submit(string text, NpcAction confirm = NpcAction.None)
         {
             if (MenuOpen || !InConversation || Pending || string.IsNullOrWhiteSpace(text)) return;
             sentText = text.Trim();
+            confirmedAction = confirm;
             SendSaved();
         }
 
@@ -207,6 +212,7 @@ namespace MedievalCastle.Npc.Demo
             cancellation = request;
             result = null;
             failed = false;
+            gameOutcome = "";
             replyIsChinese = chinese;
             replyPage = 0;
             StopVoice();
@@ -214,11 +220,16 @@ namespace MedievalCastle.Npc.Demo
             actor.Listen(viewer);
             try
             {
-                var reply = await service.SendTurnAsync(actor.RoleId, sentText, state, chinese ? "zh" : "en", request.Token);
+                var reply = await service.SendTurnAsync(actor.RoleId, sentText, gameplay.Snapshot(),
+                    replyIsChinese ? "zh" : "en", request.Token);
                 if (request != cancellation || request.IsCancellationRequested) return;
                 result = reply;
                 failed = !reply.Success;
-                if (!failed) StartReply(actor, reply);
+                if (!failed)
+                {
+                    gameOutcome = gameplay.Apply(service, actor.RoleId, reply, confirmedAction, replyIsChinese);
+                    StartReply(actor, reply);
+                }
             }
             catch (Exception)
             {

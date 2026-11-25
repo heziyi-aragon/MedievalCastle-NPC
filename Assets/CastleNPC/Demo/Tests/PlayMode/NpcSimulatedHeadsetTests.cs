@@ -180,7 +180,7 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
             Frame(a: true); Frame(a: true); Frame();
             Assert.That(provider.Requests, Has.Count.EqualTo(2));
             Assert.That(provider.Requests[1].PlayerText, Is.EqualTo(provider.Requests[0].PlayerText));
-            provider.Replies[1].SetResult("{\"reply\":\"Here is your bread.\",\"action\":\"request_purchase\",\"itemId\":\"bread\",\"quantity\":1,\"questId\":\"\"}");
+            provider.Replies[1].SetResult("{\"reply\":\"One Castle Pass costs ten coins.\",\"action\":\"request_purchase\",\"itemId\":\"castle_pass\",\"quantity\":1,\"questId\":\"\"}");
             deadline = Time.realtimeSinceStartup + 3f;
             while (Panel.LastTurn == null && Time.realtimeSinceStartup < deadline) yield return null;
             Assert.That(Panel.LastTurn.Decision.Action, Is.EqualTo(NpcAction.RequestPurchase));

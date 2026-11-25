@@ -58,8 +58,8 @@ namespace MedievalCastle.Npc
                     {
                         answer.action = "offer_training";
                         answer.questId = state.questId;
-                        answer.reply = zh ? $"到庭院检查 {state.trainingTarget} 处操练标记。愿意接受吗？"
-                            : $"Inspect {state.trainingTarget} training markers in the courtyard. Will you take the drill?";
+                        answer.reply = zh ? $"到庭院检查 {state.trainingTarget} 处操练标记。"
+                            : $"Inspect {state.trainingTarget} training markers in the courtyard.";
                     }
                     else if (state.trainingStatus == "active" || state.trainingStatus == "ready")
                     {
@@ -80,7 +80,7 @@ namespace MedievalCastle.Npc
         {
             var catalog = state.catalog ?? Array.Empty<NpcCatalogItem>();
             var matches = catalog.Where(i => i != null && !string.IsNullOrEmpty(i.itemId) &&
-                (text.Contains(i.itemId.ToLowerInvariant()) || text.Contains(Label(i.itemId, true)))).ToArray();
+                ContainsAny(text, i.itemId.ToLowerInvariant(), Label(i, false).ToLowerInvariant(), Label(i, true))).ToArray();
             bool askingPrice = ContainsAny(text, "how much", "how many coins", "what does", "what would", "cost", "price",
                 "afford", "多少钱", "价格", "价值", "贵吗", "几枚", "多少铜币");
             if (askingPrice || IsSpeculative(text) ||
@@ -89,18 +89,18 @@ namespace MedievalCastle.Npc
                 if (askingPrice && matches.Length == 1)
                 {
                     var priced = matches[0];
-                    if (TryPurchaseQuantity(text, priced.itemId, out int count) && count > 1)
+                    if (TryPurchaseQuantity(text, priced, out int count) && count > 1)
                     {
                         long quote = (long)priced.price * count;
-                        answer.reply = zh ? $"每件 {priced.price} 枚铜币。{count} 件{Label(priced.itemId, true)}共 {quote} 枚。"
-                            : $"At {priced.price} coins each, {count} × {priced.itemId} would cost {quote} coins.";
+                        answer.reply = zh ? $"每件 {priced.price} 枚铜币。{count} 件{Label(priced, true)}共 {quote} 枚。"
+                            : $"At {priced.price} coins each, {count} × {Label(priced, false)} would cost {quote} coins.";
                     }
-                    else answer.reply = zh ? $"每件{Label(priced.itemId, true)}是 {priced.price} 枚铜币。"
-                        : $"The price per {priced.itemId} is {priced.price} coins.";
+                    else answer.reply = zh ? $"每件{Label(priced, true)}是 {priced.price} 枚铜币。"
+                        : $"The price per {Label(priced, false)} is {priced.price} coins.";
                     return;
                 }
                 var list = string.Join(zh ? "、" : ", ", catalog.Where(i => i != null)
-                    .Select(i => $"{Label(i.itemId, zh)} ({i.price})"));
+                    .Select(i => $"{Label(i, zh)} ({i.price})"));
                 answer.reply = catalog.Length == 0
                     ? (zh ? "今天货架是空的，旅人。" : "My shelves are empty today, traveler.")
                     : (zh ? $"今天的货品和铜币价格是：{list}。" : $"Today’s wares and prices in coins are {list}.");
@@ -112,7 +112,7 @@ namespace MedievalCastle.Npc
                 return;
             }
             var item = matches[0];
-            if (!TryPurchaseQuantity(text, item.itemId, out int quantity))
+            if (!TryPurchaseQuantity(text, item, out int quantity))
             {
                 answer.reply = zh ? "请告诉我你要买的正整数数量。" : "How many whole items would you like to buy?";
                 return;
@@ -123,11 +123,25 @@ namespace MedievalCastle.Npc
             long total = (long)item.price * quantity;
             answer.reply = total > state.coins
                 ? (zh ? $"共需 {total} 枚铜币，你身上的钱还不够。" : $"That costs {total} coins, more than you are carrying.")
-                : (zh ? $"{quantity} 件{Label(item.itemId, true)}共需 {total} 枚铜币，请确认。" : $"For {quantity} × {item.itemId}, the price is {total} coins. Shall we trade?");
+                : (zh ? $"{quantity} 件{Label(item, true)}共需 {total} 枚铜币。" : $"For {quantity} × {Label(item, false)}, the price is {total} coins.");
         }
 
-        private static string Label(string id, bool zh) =>
-            !zh ? id : id == "bread" ? "面包" : id == "lantern" ? "提灯" : id;
+        private static string Label(NpcCatalogItem item, bool zh)
+        {
+            string name = zh ? item.nameZh : item.name;
+            if (!string.IsNullOrWhiteSpace(name)) return name;
+            if (!zh) return item.itemId;
+            return item.itemId switch
+            {
+                "bread" => "面包",
+                "lantern" => "提灯",
+                _ => item.itemId
+            };
+        }
+
+        private static string ItemPattern(NpcCatalogItem item, bool zh) =>
+            "(?:" + Regex.Escape(Label(item, zh).ToLowerInvariant()) + "|" +
+            Regex.Escape(item.itemId.ToLowerInvariant()) + ")";
 
         private static readonly string[] SmallNumbers = {
             "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
@@ -139,7 +153,7 @@ namespace MedievalCastle.Npc
 
         // Default to a single item only for an unqualified item name. Every other quantity
         // must parse completely, so "five or six" and "好多" cannot turn into orders for one.
-        private static bool TryPurchaseQuantity(string text, string itemId, out int quantity)
+        private static bool TryPurchaseQuantity(string text, NpcCatalogItem item, out int quantity)
         {
             quantity = 0;
             var en = Regex.Match(text, @"\b(?:buy|purchase|i['’]ll take)\s+(.+)$");
@@ -147,8 +161,8 @@ namespace MedievalCastle.Npc
             {
                 var order = en.Groups[1].Value.Trim().TrimEnd('.', '!', '?');
                 order = Regex.Replace(order, @",?\s+please$", "").TrimEnd();
-                var item = Regex.Escape(itemId.ToLowerInvariant());
-                var match = Regex.Match(order, @"^(?:(.+?)\s+)?(?:(?:loaf|loaves|pieces?|units?)\s+of\s+)?" + item + "s?$");
+                var match = Regex.Match(order, @"^(?:(.+?)\s+)?(?:(?:loaf|loaves|pieces?|units?)\s+of\s+)?"
+                    + ItemPattern(item, false) + "(?:s|es)?$");
                 if (!match.Success) return false;
                 var amount = match.Groups[1].Value;
                 if (amount == "" || amount == "a" || amount == "an" || amount == "the") { quantity = 1; return true; }
@@ -163,10 +177,10 @@ namespace MedievalCastle.Npc
                 quantity = tens * 10 + units;
                 return true;
             }
-            var zh = Regex.Match(text, @"(?:购买|买|我要(?:购买|买)?|给我(?:来|买)?|来)\s*(?<amount>.*?)\s*(?:"
-                + Regex.Escape(Label(itemId, true)) + "|" + Regex.Escape(itemId.ToLowerInvariant()) + @")\s*(?:吧|谢谢)?[。！？.!?]*$");
+            var zh = Regex.Match(text, @"(?:购买|买|我要(?:购买|买)?|给我(?:来|买)?|来)\s*(?<amount>.*?)\s*"
+                + ItemPattern(item, true) + @"\s*(?:吧|谢谢)?[。！？.!?]*$");
             if (!zh.Success) return false;
-            var count = Regex.Replace(zh.Groups["amount"].Value.Trim(), "[个件份盏袋块条把只包]$", "").Trim();
+            var count = Regex.Replace(zh.Groups["amount"].Value.Trim(), "[个件份盏袋块条把只包张瓶]$", "").Trim();
             if (count == "") { quantity = 1; return true; }
             if (int.TryParse(count, NumberStyles.None, CultureInfo.InvariantCulture, out quantity)) return quantity > 0;
             count = count.Replace('两', '二');

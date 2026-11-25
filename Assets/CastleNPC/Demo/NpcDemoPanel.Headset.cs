@@ -120,7 +120,16 @@ namespace MedievalCastle.Npc.Demo
         {
             switch (choice)
             {
-                case HudChoice.Prompt1: case HudChoice.Prompt2: case HudChoice.Prompt3: Submit(Prompt((int)choice)); break;
+                case HudChoice.Prompt1:
+                    var confirmed = actors[role].RoleId switch
+                    {
+                        "merchant" => NpcAction.RequestPurchase,
+                        "knight" => NpcAction.OfferTraining,
+                        _ => NpcAction.None
+                    };
+                    Submit(Prompt(0), confirmed);
+                    break;
+                case HudChoice.Prompt2: case HudChoice.Prompt3: Submit(Prompt((int)choice)); break;
                 case HudChoice.NextPage:
                     if (HasPages) replyPage = (replyPage + 1) % ((SpokenLine.Length + PageLength - 1) / PageLength);
                     break;

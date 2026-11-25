@@ -1,5 +1,5 @@
 {
   "name": "CastleNPC.Demo",
   "rootNamespace": "MedievalCastle.Npc.Demo",
-  "references": ["CastleNPC.Dialogue", "MedievalCastle.NPC.Characters", "CastleNPC.Exploration", "Unity.InputSystem", "UnityEngine.UI"]
+  "references": ["CastleNPC.Dialogue", "MedievalCastle.Mechanics", "MedievalCastle.NPC.Characters", "CastleNPC.Exploration", "Unity.InputSystem", "UnityEngine.UI"]
 }

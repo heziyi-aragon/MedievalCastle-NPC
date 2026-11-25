@@ -13,15 +13,15 @@
   },
   {
     "npcId": "merchant",
-    "input": "How much are two loaves of bread?",
-    "state": {"catalog":[{"itemId":"bread","price":2}]},
-    "output": {"reply":"Two loaves would be four coins.","action":"none","itemId":"","quantity":0,"questId":""}
+    "input": "How much is a Castle Pass?",
+    "state": {"catalog":[{"itemId":"castle_pass","price":10}]},
+    "output": {"reply":"A Castle Pass costs ten coins.","action":"none","itemId":"","quantity":0,"questId":""}
   },
   {
     "npcId": "merchant",
-    "input": "I would like to buy two loaves of bread.",
-    "state": {"coins":3,"catalog":[{"itemId":"bread","price":2}]},
-    "output": {"reply":"Two loaves come to four coins. You have only three.","action":"request_purchase","itemId":"bread","quantity":2,"questId":""},
+    "input": "Buy one Castle Pass.",
+    "state": {"coins":3,"catalog":[{"itemId":"castle_pass","price":10}]},
+    "output": {"reply":"A Castle Pass costs ten coins. You have only three.","action":"request_purchase","itemId":"castle_pass","quantity":1,"questId":""},
     "exampleGameOutcome":"Purchase declined. Coins and inventory unchanged."
   },
   {
