@@ -1,0 +1,7 @@
+{
+  "name": "CastleNPC.Demo.Tests",
+  "rootNamespace": "MedievalCastle.Npc.Demo.Tests",
+  "references": ["CastleNPC.Dialogue", "CastleNPC.Demo", "MedievalCastle.Mechanics"],
+  "includePlatforms": ["Editor"],
+  "optionalUnityReferences": ["TestAssemblies"]
+}

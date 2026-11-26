@@ -1,0 +1,6 @@
+{
+  "name": "CastleNPC.Demo.PlayModeTests",
+  "rootNamespace": "MedievalCastle.Npc.Demo.PlayModeTests",
+  "references": ["CastleNPC.Dialogue", "CastleNPC.Demo", "CastleNPC.Exploration", "MedievalCastle.NPC.Characters", "Unity.InputSystem", "UnityEngine.UI"],
+  "optionalUnityReferences": ["TestAssemblies"]
+}
