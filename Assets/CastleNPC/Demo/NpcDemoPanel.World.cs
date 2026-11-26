@@ -169,6 +169,14 @@ namespace MedievalCastle.Npc.Demo
             events.AddComponent<InputSystemUIInputModule>();
         }
 
+        private void LateUpdate()
+        {
+            // CastlePlayerMotor applies mouse look after this panel's Update. Reapply only the
+            // desktop card rotations after that camera motion; their world anchors stay fixed.
+            if (!drawnXr && InConversation && !MenuOpen && layoutValid && boardCamera)
+                FacePlayer(boardCamera, false);
+        }
+
         private void RefreshWorldCards(Camera eye, bool xr)
         {
             if (!InConversation || MenuOpen || !eye)
@@ -197,7 +205,7 @@ namespace MedievalCastle.Npc.Demo
                 drawnOutcome == gameOutcome && drawnPurchase == purchase && drawnTrainingRewardChoice == ShowTrainingRewardChoice)
             {
                 speech.gameObject.SetActive(!string.IsNullOrEmpty(SpokenLine));
-                FacePlayer(eye);
+                FacePlayer(eye, xr);
                 return;
             }
             SetHudChoices();
@@ -269,7 +277,7 @@ namespace MedievalCastle.Npc.Demo
                     FrameDesktop(eye);
                 }
             }
-            FacePlayer(eye);
+            FacePlayer(eye, xr);
         }
 
         private void ShowFarewellCaption(Camera eye)
@@ -302,9 +310,11 @@ namespace MedievalCastle.Npc.Demo
             ((RectTransform)speech.transform).sizeDelta = new Vector2(captionWidth, bodyHeight + 14 + (pages ? 26 : 0));
         }
 
-        private void FacePlayer(Camera eye)
+        private void FacePlayer(Camera eye, bool xr)
         {
-            var candidate = Facing(questions.transform.position, eye);
+            // Desktop mouse look can rotate in place, so positional billboarding is insufficient.
+            // Match the camera plane exactly; XR retains its position-based, upright presentation.
+            var candidate = xr ? Facing(questions.transform.position, eye) : ScreenFacing(eye);
             // With physical sidesteps the board may turn towards a nearby wall. Keep the last
             // clear orientation until the whole card can turn without entering the wall.
             if (Quaternion.Angle(questions.transform.rotation, candidate) > .3f)
@@ -313,8 +323,11 @@ namespace MedievalCastle.Npc.Demo
                 if (!Physics.CheckBox(questions.transform.position, half, candidate, ~0, QueryTriggerInteraction.Ignore))
                     questions.transform.rotation = candidate;
             }
-            speech.transform.rotation = Facing(speech.transform.position, eye);
+            speech.transform.rotation = xr ? Facing(speech.transform.position, eye) : ScreenFacing(eye);
         }
+
+        private static Quaternion ScreenFacing(Camera eye) =>
+            Quaternion.LookRotation(eye.transform.forward, eye.transform.up);
 
         private static Quaternion Facing(Vector3 position, Camera eye)
         {

@@ -85,7 +85,7 @@ namespace MedievalCastle.Npc.Demo
                 nextHudDraw = Time.unscaledTime + HudRefreshInterval;
                 PaintHud();
             }
-            else if (InConversation && !MenuOpen && questions) FacePlayer(camera);
+            else if (InConversation && !MenuOpen && questions) FacePlayer(camera, true);
         }
 
         private int PageLength => replyIsChinese ? 48 : 112;

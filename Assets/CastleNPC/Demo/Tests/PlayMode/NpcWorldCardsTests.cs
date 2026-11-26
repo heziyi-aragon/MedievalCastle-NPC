@@ -53,6 +53,11 @@ namespace MedievalCastle.Npc.Demo.PlayModeTests
                 Panel.HandleDesktopFrame(Eye, false, false);
                 Assert.That(choices.position, Is.EqualTo(anchor));
                 Assert.That(caption.position, Is.EqualTo(top));
+                foreach (var card in new[] { choices, caption })
+                {
+                    Assert.That(Quaternion.Angle(card.rotation, Eye.transform.rotation), Is.LessThan(.01f),
+                        role + " card remains parallel to the desktop camera after an in-place turn");
+                }
                 Eye.transform.rotation = originalRotation;
                 Panel.HandleDesktopFrame(Eye, false, true);
                 Assert.That(choices.gameObject.activeSelf, Is.False);
