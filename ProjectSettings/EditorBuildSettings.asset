@@ -6,6 +6,11 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Scenes/Castle_Exterior.unity
+    guid: 3008101be89682c4596c01df5a70bf9a
+  - enabled: 1
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
-  m_configObjects: {}
+  m_configObjects:
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 6701c761574647638d05986b355b1926, type: 2}
+    com.unity.xr.openxr.settings4: {fileID: 11400000, guid: d819b6c074414cd3994bb80e86252343, type: 2}

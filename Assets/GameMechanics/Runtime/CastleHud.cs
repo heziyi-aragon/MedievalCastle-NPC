@@ -115,24 +115,21 @@ namespace MedievalCastle.Mechanics
             if (direction.text != value) direction.text = value;
         }
 
-        public void Refresh(PlayerSnapshot state)
+        public void Refresh(PlayerSnapshot state, CastleObjective goal)
         {
             wallet.text = $"{state.gold} gold   ·   {state.reputation} rep";
             bag.text = state.inventory.Length == 0 ? "Backpack empty" :
                 string.Join("   ·   ", state.inventory.Select(item => $"{CastleGame.ItemName(item.itemId)} ×{item.quantity}"));
 
-            if (state.questStage == nameof(QuestStage.Rewarded))
-                objective.text = "Training complete. Reward collected.";
-            else if (state.questStage == nameof(QuestStage.Complete))
-                objective.text = "Return to the knight for your reward.";
-            else if (state.questStage == nameof(QuestStage.InProgress))
-                objective.text = $"Training stations   {state.trainingProgress}/{state.trainingTotal}\nVisit station {state.trainingProgress + 1}.";
-            else if (state.gateOpen)
-                objective.text = "Find the knight at the training yard.";
-            else if (state.inventory.Any(item => item.itemId == CastleGame.PassId))
-                objective.text = "Show your Castle Pass to the guard.";
-            else
-                objective.text = "Ask the merchant for a Castle Pass.";
+            objective.text = goal switch
+            {
+                CastleObjective.Rewarded => "Training complete. Reward collected.",
+                CastleObjective.ClaimReward => "Return to the knight for your reward.",
+                CastleObjective.VisitMarker => $"Training stations   {state.trainingProgress}/{state.trainingTotal}\nVisit station {state.trainingProgress + 1}.",
+                CastleObjective.StartTraining => "Find the knight at the training yard.",
+                CastleObjective.VerifyPass => "Show your Castle Pass to the guard.",
+                _ => "Ask the merchant for a Castle Pass."
+            };
         }
 
         public void Open(NpcActor actor, PlayerSnapshot state, IReadOnlyList<NpcTurn> history)

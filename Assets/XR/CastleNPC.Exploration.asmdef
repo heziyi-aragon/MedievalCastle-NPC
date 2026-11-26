@@ -1,0 +1,5 @@
+{
+  "name": "CastleNPC.Exploration",
+  "rootNamespace": "MedievalCastle",
+  "references": ["Unity.InputSystem", "Unity.XR.CoreUtils"]
+}

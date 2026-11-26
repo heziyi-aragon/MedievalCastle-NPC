@@ -1,0 +1,39 @@
+[
+  {
+    "npcId": "guard",
+    "input": "Which way to the merchant?",
+    "output": {"reply":"The merchant is beside the gate, traveler.","action":"none","itemId":"","quantity":0,"questId":""}
+  },
+  {
+    "npcId": "guard",
+    "input": "I have a pass. May I enter?",
+    "state": {"hasPass":false},
+    "output": {"reply":"Your record shows no gate pass. Let me check it before I admit you.","action":"check_pass","itemId":"","quantity":0,"questId":""},
+    "exampleGameOutcome": "Entry denied. No gate pass in the authoritative inventory."
+  },
+  {
+    "npcId": "merchant",
+    "input": "How much is a Castle Pass?",
+    "state": {"catalog":[{"itemId":"castle_pass","price":10}]},
+    "output": {"reply":"A Castle Pass costs ten coins.","action":"none","itemId":"","quantity":0,"questId":""}
+  },
+  {
+    "npcId": "merchant",
+    "input": "Buy one Castle Pass.",
+    "state": {"coins":3,"catalog":[{"itemId":"castle_pass","price":10}]},
+    "output": {"reply":"A Castle Pass costs ten coins. You have only three.","action":"request_purchase","itemId":"castle_pass","quantity":1,"questId":""},
+    "exampleGameOutcome":"Purchase declined. Coins and inventory unchanged."
+  },
+  {
+    "npcId": "knight",
+    "input": "May I start training?",
+    "state": {"questId":"courtyard_drill","trainingStatus":"available","trainingProgress":0,"trainingTarget":3},
+    "output": {"reply":"Visit the three training markers in the courtyard and report back to me.","action":"offer_training","itemId":"","quantity":0,"questId":"courtyard_drill"}
+  },
+  {
+    "npcId": "knight",
+    "input": "请检查我的训练进度。",
+    "state": {"questId":"courtyard_drill","trainingStatus":"ready","trainingProgress":3,"trainingTarget":3},
+    "output": {"reply":"三处操练标记都已登记。我来核验你的训练记录。","action":"review_training","itemId":"","quantity":0,"questId":"courtyard_drill"}
+  }
+]
