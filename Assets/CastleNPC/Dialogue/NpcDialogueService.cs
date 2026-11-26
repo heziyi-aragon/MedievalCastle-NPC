@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -85,6 +86,8 @@ namespace MedievalCastle.Npc
                 return result;
             }
 
+            var watch = Stopwatch.StartNew();
+            NpcTurnTrace trace = null;
             var pending = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             inFlight.Add(key, pending);
             pending.CancelAfter(TimeSpan.FromSeconds(DeepSeekNpcProvider.TimeoutSeconds));
@@ -113,6 +116,19 @@ namespace MedievalCastle.Npc
                 };
                 var provider = providerOverride ?? (mode == NpcProviderMode.Offline
                     ? (INpcDialogueProvider)new NpcOfflineProvider() : new DeepSeekNpcProvider());
+                trace = new NpcTurnTrace
+                {
+                    npcId = npcId,
+                    model = request.Model,
+                    language = language,
+                    playerText = context.playerText,
+                    liveProvider = providerOverride == null && mode == NpcProviderMode.DeepSeek,
+                    offline = result.IsOffline,
+                    requestJson = DeepSeekNpcProvider.SerializeRequest(request),
+                    contextJson = request.Messages[1].content,
+                    beforeStateJson = snapshotJson
+                };
+                result.Trace = trace;
                 var operation = provider.GenerateAsync(request, pending.Token);
                 var stopped = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 using (pending.Token.Register(() => stopped.TrySetResult(true)))
@@ -126,17 +142,22 @@ namespace MedievalCastle.Npc
                     }
                     var raw = await operation;
                     pending.Token.ThrowIfCancellationRequested();
+                    result.RawJson = raw ?? "";
+                    trace.rawJson = result.RawJson;
                     if (snapshotJson != JsonUtility.ToJson(playerState))
                     {
                         result.Error = zh ? "玩家状态已变化，请用最新状态重试。" : "Player state changed. Retry using the latest state.";
                         return result;
                     }
-                    result.RawJson = raw ?? "";
+                    trace.validationAttempted = true;
                     if (!NpcDecisionValidator.TryParse(raw, npcId, state, out var decision, out var error))
                     {
+                        trace.validationError = error;
                         result.Error = zh ? "模型返回了无效决策，请重试。" : error;
                         return result;
                     }
+                    trace.validationAccepted = true;
+                    trace.proposedAction = decision.Action.ToString();
                     var turnId = Guid.NewGuid().ToString("N");
                     var exchange = new Exchange
                     {
@@ -147,6 +168,7 @@ namespace MedievalCastle.Npc
                     if (prior == null) histories.Add(key, prior = new List<Exchange>());
                     prior.Add(exchange);
                     turns.Add(turnId, exchange);
+                    trace.turnId = turnId;
                     if (prior.Count > HistoryLimit)
                     {
                         turns.Remove(prior[0].turnId);
@@ -176,6 +198,12 @@ namespace MedievalCastle.Npc
             }
             finally
             {
+                if (trace != null)
+                {
+                    trace.elapsedMilliseconds = watch.ElapsedMilliseconds;
+                    trace.error = result.Error ?? "";
+                }
+                watch.Stop();
                 if (inFlight.TryGetValue(key, out var current) && current == pending) inFlight.Remove(key);
                 pending.Dispose();
             }

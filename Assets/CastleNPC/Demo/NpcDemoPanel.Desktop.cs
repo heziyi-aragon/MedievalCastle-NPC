@@ -62,6 +62,7 @@ namespace MedievalCastle.Npc.Demo
                 return;
             }
             var keys = Keyboard.current;
+            if (keys != null && keys.f1Key.wasPressedThisFrame) traceVisible = !traceVisible;
             int frame = Time.frameCount;
             bool e = keys != null && keys.eKey.wasPressedThisFrame;
             bool esc = keys != null && keys.escapeKey.wasPressedThisFrame;
@@ -194,6 +195,8 @@ namespace MedievalCastle.Npc.Demo
                     clearTextFocus = false;
                 }
                 if (!InConversation) DrawExplorationHint(width, height);
+                if (!traceVisible) DrawTraceHint(width, height);
+                if (traceVisible) DrawTrace(width, height);
 
             }
             finally { GUI.skin = original; GUI.matrix = matrix; }
@@ -208,6 +211,16 @@ namespace MedievalCastle.Npc.Demo
             var bounds = new Rect((width - w) * .5f, height - h - 19, w, h);
             DrawBackdrop(bounds);
             GUI.Label(new Rect(bounds.x + 17, bounds.y + 8, w - 34, h - 12), line, speechStyle);
+        }
+
+        private void DrawTraceHint(float width, float height)
+        {
+            var line = chinese ? "F1 · AI 追踪" : "F1 · AI Trace";
+            float w = speechStyle.CalcSize(new GUIContent(line)).x + 30f;
+            float h = speechStyle.CalcHeight(new GUIContent(line), w - 24) + 12;
+            var bounds = new Rect(12f, height - h - 12f, w, h);
+            DrawBackdrop(bounds);
+            GUI.Label(new Rect(bounds.x + 12, bounds.y + 6, w - 24, h - 10), line, speechStyle);
         }
 
         private void HandleMenuPointer(Event ev)

@@ -139,7 +139,7 @@ namespace MedievalCastle.Npc.Demo
                     break;
                 case HudChoice.Retry: Retry(); break;
                 case HudChoice.ConfirmPurchase: case HudChoice.CancelPurchase:
-                    gameOutcome = gameplay.FinishPurchase(service, choice == HudChoice.ConfirmPurchase, chinese);
+                    FinishPendingPurchase(choice == HudChoice.ConfirmPurchase);
                     break;
                 case HudChoice.ClaimTrainingReward:
                     if (role != 2 || Pending) break;
@@ -149,6 +149,13 @@ namespace MedievalCastle.Npc.Demo
                     break;
                 case HudChoice.End: EndTalkWithFarewell(); break;
             }
+        }
+
+        internal void FinishPendingPurchase(bool confirmed)
+        {
+            string turnId = gameplay.PendingPurchase?.TurnId ?? "";
+            gameOutcome = gameplay.FinishPurchase(service, confirmed, chinese);
+            CompletePurchaseTrace(turnId, confirmed, gameOutcome);
         }
 
         private void PaintHud()

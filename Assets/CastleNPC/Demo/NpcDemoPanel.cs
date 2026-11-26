@@ -183,10 +183,13 @@ namespace MedievalCastle.Npc.Demo
 
         internal void EndTalk()
         {
+            string purchaseTurnId = gameplay?.PendingPurchase?.TurnId ?? "";
             var prior = cancellation;
             cancellation = null;
             prior?.Cancel();
             gameplay?.FinishPurchase(service, false, chinese);
+            if (!string.IsNullOrEmpty(purchaseTurnId))
+                CompletePurchaseTrace(purchaseTurnId, false, "Conversation ended before purchase confirmation.");
             StopVoice();
             if (InConversation && actors[role]) actors[role].EndConversation();
             role = -1;
@@ -232,10 +235,12 @@ namespace MedievalCastle.Npc.Demo
                     replyIsChinese ? "zh" : "en", request.Token);
                 if (request != cancellation || request.IsCancellationRequested) return;
                 result = reply;
+                RecordTrace(reply);
                 failed = !reply.Success;
                 if (!failed)
                 {
                     gameOutcome = gameplay.Apply(service, actor.RoleId, reply, confirmedAction, replyIsChinese);
+                    CompleteTraceExecution(reply, gameOutcome);
                     if (gate) gate.IsOpen = gameplay.GateOpen;
                     StartReply(actor, reply);
                 }

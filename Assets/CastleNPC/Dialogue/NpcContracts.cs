@@ -59,6 +59,7 @@ namespace MedievalCastle.Npc
         public string Error { get; internal set; } = "";
         public bool IsOffline { get; internal set; }
         public NpcDecision Decision { get; internal set; }
+        public NpcTurnTrace Trace { get; internal set; }
     }
 
     [Serializable]
